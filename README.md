@@ -1,27 +1,42 @@
-OSINT Visualizer (Mock Demo)
+# OSINT Visualizer (Live APIs)
 
-Live demo: https://ringmast4r.github.io/OSINT-VISUALIZER/
+A lightweight, browser-only OSINT dashboard that pulls live data from multiple government and corporate registries. The UI lets investigators search for a term, toggle data sources, and see aggregated metrics rendered on a radial “spire” chart.
 
-Overview
+> **Heads-up:** the previous version of this project shipped with fully mocked data. The application now connects to real APIs, so you must supply valid API keys/tokens before searching.
 
-This is a mock demo of an OSINT visualizer tool, built to show how the final product could look. No real API keys or live data are included — all data is synthetic. This allows safe public hosting on GitHub Pages without exposing secrets.
+## Features
 
-Features:
+- Search across multiple OSINT endpoints (FEC, GovInfo, OpenCorporates) directly from the browser
+- Per-source toggles with live hit counts, average confidence, and grouped result cards
+- Interactive radial visualization showing relative hit volume and average confidence by source
+- Client-side storage of API keys in `localStorage` via the in-app **API Keys** dialog
+- Graceful error handling for missing credentials, timeouts, and partial failures
 
-A search box where users type in a name, company, keyword, or IP address.
+## Supported APIs & keys
 
-Colored source chips (like FEC, GovInfo, OpenCorporates, etc.) that users can toggle on/off.
+| Source          | API documentation | Credential name | Notes |
+|-----------------|-------------------|-----------------|-------|
+| FEC             | https://api.open.fec.gov/developers/ | `api_key` | A demo key (`DEMO_KEY`) is bundled for quick tests. Production usage should register its own key.
+| GovInfo         | https://api.govinfo.gov/docs/ | `api_key` | Also accepts `DEMO_KEY`, but register for higher limits.
+| OpenCorporates  | https://api.opencorporates.com/documentation/API-Reference | `api_token` | Requires a personal API token (no demo token provided).
 
-A radial “spire” chart where each source has a ring:
+Additional sources can be added by extending the `SOURCE_CONFIG` object in `index.html` with a new color, metadata, and fetcher function.
 
-The height (line width) of the ring corresponds to the number of mock hits from that source.
+## Getting started
 
-The arc length of the ring corresponds to the average “confidence” for that source.
+1. Clone the repository and open `index.html` in any modern browser, or serve it locally (e.g. `python -m http.server`).
+2. Click **API Keys** and paste valid credentials for each source you plan to query. Keys are stored only in your browser’s `localStorage`.
+3. Enter a search term (person, company, keyword, etc.) and press **Search**.
+4. Toggle sources on/off with the chips to focus on subsets of the data. The metrics panel and radial chart update instantly.
 
-Each source has its own color.
+## Key storage & security
 
-A metrics strip showing per-source hits and average confidence.
+- Keys never leave the browser; there is no backend component.
+- Clearing an input in the **API Keys** dialog removes it from `localStorage`.
+- Use caution when deploying to shared machines—clear stored keys after use.
 
-Grouped results cards under each source showing mock items (title, summary, time, etc.).
+## Development notes
 
-Fully client-side; no backend, no API calls (so no CORS issues or key exposure).
+- All UI and data-fetching logic lives in `index.html` for ease of hosting (e.g. GitHub Pages).
+- Requests include built-in timeouts and show contextual warnings if any source fails or lacks a key.
+- Confidence scores are derived from API-specific metadata (where available) or heuristics to keep the visualization meaningful.
