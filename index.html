@@ -2,28 +2,36 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>OSINT Visualizer (Mock Demo)</title>
+<title>OSINT Visualizer (Live APIs)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
-  :root{--bg:#f7f7fb;--fg:#0f172a;--muted:#64748b;--card:#fff;--border:#e2e8f0;--accent:#111827}
+  :root{--bg:#f7f7fb;--fg:#0f172a;--muted:#64748b;--card:#fff;--border:#e2e8f0;--accent:#111827;--accent-2:#1f2937}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-  .header{position:sticky;top:0;background:rgba(255,255,255,.85);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
+  a{color:var(--accent)}
+  .header{position:sticky;top:0;background:rgba(255,255,255,.85);backdrop-filter:blur(6px);border-bottom:1px solid var(--border);z-index:10}
   .brand{max-width:1200px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:12px}
-  .logo{width:40px;height:40px;border-radius:12px;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center}
-  h1{margin:0;font-size:20px} .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .logo{width:40px;height:40px;border-radius:12px;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600}
+  h1{margin:0;font-size:20px}
+  .sub{color:var(--muted);font-size:13px;margin-top:2px}
   .wrap{max-width:1200px;margin:16px auto;padding:0 16px}
-  .row{display:flex;gap:8px;margin:10px 0 16px}
-  input[type="text"]{flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:10px}
-  button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer}
+  .row{display:flex;gap:8px;margin:10px 0 16px;flex-wrap:wrap}
+  .row input[type="text"]{flex:1 1 220px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff}
+  .row > button{white-space:nowrap}
+  button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600;transition:background .15s ease}
+  button.secondary{background:#fff;color:var(--accent);border:1px solid var(--accent);padding:9px 14px}
+  button:disabled{opacity:.6;cursor:progress}
+  button:hover:not(:disabled){background:var(--accent-2)}
+  button.secondary:hover:not(:disabled){background:#111827;color:#fff}
   .grid{display:grid;grid-template-columns:1fr 2fr;gap:16px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
   .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;min-height:34px}
-  .chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:12px;background:#fff;cursor:pointer;box-shadow:0 0 0 2px transparent inset;transition:box-shadow .15s}
+  .chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:12px;background:#fff;cursor:pointer;box-shadow:0 0 0 2px transparent inset;transition:box-shadow .15s,background .15s,color .15s}
   .chip.active{color:#fff}
   .chip .dot{width:10px;height:10px;border-radius:999px;display:inline-block}
   .toolbar{display:flex;gap:10px;margin-top:8px}
   .toolbar a{font-size:13px}
+  .toolbar a:hover{text-decoration:none}
   .muted{color:var(--muted)}
   .canvasWrap{height:380px;border:1px solid var(--border);border-radius:16px;display:flex;align-items:center;justify-content:center;background:#fff}
   canvas{width:100%;height:100%}
@@ -35,11 +43,28 @@
   .groupTitle{display:flex;align-items:center;gap:8px;font-weight:600}
   .legendDot{width:10px;height:10px;border-radius:999px;display:inline-block}
   .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
-  .item{border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff}
+  .item{border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:6px}
   .item a{color:inherit;text-decoration:none}
-  .item .title{font-weight:600;margin-bottom:6px}
+  .item .title{font-weight:600}
   .item .subtle{font-size:12px;color:var(--muted)}
-  .note{margin-top:10px;color:#a15c00;background:#fff7e6;border:1px solid #ffe1b3;padding:8px;border-radius:10px;font-size:13px}
+  .note{margin-top:10px;border-radius:10px;padding:10px 12px;font-size:13px;border:1px solid transparent}
+  .note.note-info{color:#1d4ed8;background:#eff6ff;border-color:#bfdbfe}
+  .note.note-warn{color:#a15c00;background:#fff7e6;border-color:#ffe1b3}
+  .note.note-error{color:#991b1b;background:#fee2e2;border-color:#fecaca}
+  .modalBackdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .modalBackdrop.open{display:flex}
+  .modal{background:#fff;border-radius:16px;padding:20px;max-width:480px;width:100%;box-shadow:0 24px 60px rgba(15,23,42,.25)}
+  .modalHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+  .iconButton{border:0;background:rgba(15,23,42,.05);color:var(--accent);border-radius:999px;width:32px;height:32px;font-size:18px;line-height:32px;text-align:center;cursor:pointer}
+  .iconButton:hover{background:rgba(15,23,42,.12)}
+  .keysForm{display:flex;flex-direction:column;gap:16px}
+  .keysFields{display:flex;flex-direction:column;gap:16px;margin-top:8px}
+  .keysFields label{display:flex;flex-direction:column;gap:6px;font-size:14px}
+  .keysFields input{padding:9px 10px;border:1px solid var(--border);border-radius:10px;font-size:14px}
+  .helper{font-size:12px;color:var(--muted)}
+  .modalActions{display:flex;justify-content:flex-end;gap:8px}
+  code{background:#e2e8f0;border-radius:6px;padding:2px 4px;font-size:12px}
+  @media (max-width:960px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -48,7 +73,7 @@
       <div class="logo">OS</div>
       <div>
         <h1>OSINT Visualizer</h1>
-        <div class="sub">OSINT API Search · radial source aggregation (mock demo)</div>
+        <div class="sub">Live OSINT API search · radial source aggregation</div>
       </div>
     </div>
   </div>
@@ -61,12 +86,12 @@
         autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
       />
       <button id="btn">Search</button>
+      <button id="keysBtn" class="secondary">API Keys</button>
     </div>
 
     <div id="note" class="note" style="display:none"></div>
 
     <div class="grid">
-      <!-- Sources / counts -->
       <div class="card">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" stroke="#0f172a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -83,7 +108,6 @@
         </div>
       </div>
 
-      <!-- Spires/metrics -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <strong>Source Spires</strong>
@@ -94,7 +118,6 @@
       </div>
     </div>
 
-    <!-- Results -->
     <div class="card" style="margin-top:16px">
       <div class="resultsHead">
         <strong>Results</strong>
@@ -104,172 +127,455 @@
     </div>
   </div>
 
+  <div id="keysModal" class="modalBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="keysTitle">
+      <div class="modalHeader">
+        <div>
+          <strong id="keysTitle">API keys</strong>
+          <div class="muted" style="font-size:12px;margin-top:2px">Saved locally in this browser only</div>
+        </div>
+        <button id="closeKeys" class="iconButton" aria-label="Close settings">×</button>
+      </div>
+      <p class="muted" style="font-size:13px;line-height:1.45">
+        Add API credentials for each source to fetch live OSINT data. Keys are stored in <code>localStorage</code> and never leave this device.
+      </p>
+      <form id="keysForm" class="keysForm">
+        <div id="keysFields" class="keysFields"></div>
+        <div class="modalActions">
+          <button type="submit">Save keys</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 <script>
-/* -------- Palette & sources -------- */
-const PALETTE = {
-  FEC:"#2563eb", GovInfo:"#16a34a", OpenCorporates:"#f59e0b",
-  EPA:"#dc2626", "SAM.gov":"#7c3aed", FCC:"#0ea5e9",
-  CollegeScorecard:"#059669", unknown:"#9ca3af"
+const SOURCE_CONFIG = {
+  FEC: {
+    color: "#2563eb",
+    keyLabel: "FEC API Key",
+    keyHelp: "Federal Election Commission data (candidates, committees).",
+    keyLink: "https://api.open.fec.gov/developers/#/getting-started",
+    requiresKey: true,
+    defaultKey: "DEMO_KEY",
+    async fetcher(query, key, { signal } = {}) {
+      const url = new URL("https://api.open.fec.gov/v1/names/candidates/");
+      url.searchParams.set("q", query);
+      url.searchParams.set("api_key", key);
+      url.searchParams.set("per_page", "25");
+      const json = await fetchJson(url.toString(), { signal });
+      const results = Array.isArray(json.results) ? json.results : [];
+      return results.slice(0, 20).map((item, idx) => {
+        const candidateId = item.candidate_id || item.id || "";
+        const office = item.office_full || item.office || "";
+        const party = item.party_full || item.party || "";
+        const summary = [office, party].filter(Boolean).join(" · ") || "Federal Election Commission record";
+        const link = candidateId ? `https://www.fec.gov/data/candidate/${candidateId}/` : "https://www.fec.gov/data/";
+        const firstDate = item.first_f2_date || item.first_f1_date || item.first_file_date || "";
+        const lastDate = item.last_f2_date || item.last_file_date || "";
+        const bestDate = lastDate || firstDate || "";
+        return {
+          id: candidateId || `fec-${idx}-${item.name || item.candidate_name || Math.random().toString(36).slice(2,7)}`,
+          title: item.name || item.candidate_name || "FEC match",
+          url: link,
+          summary,
+          timestamp: bestDate,
+          confidence: clamp01(0.8 - idx * 0.03)
+        };
+      });
+    }
+  },
+  GovInfo: {
+    color: "#16a34a",
+    keyLabel: "GovInfo API Key",
+    keyHelp: "U.S. Government Publishing Office documents.",
+    keyLink: "https://api.govinfo.gov/docs/",
+    requiresKey: true,
+    defaultKey: "DEMO_KEY",
+    async fetcher(query, key, { signal } = {}) {
+      const url = new URL("https://api.govinfo.gov/search");
+      url.searchParams.set("query", query);
+      url.searchParams.set("api_key", key);
+      url.searchParams.set("offset", "0");
+      url.searchParams.set("pageSize", "25");
+      const json = await fetchJson(url.toString(), { signal });
+      const results = Array.isArray(json.results) ? json.results : [];
+      return results.slice(0, 20).map((item, idx) => {
+        const link = item.pdfLink || item.htmlLink || item.packageLink || item.download || "https://www.govinfo.gov/";
+        const summaryParts = [];
+        if (item.collectionName || item.collectionCode) summaryParts.push(item.collectionName || item.collectionCode);
+        if (item.resultType) summaryParts.push(item.resultType);
+        const dateIssued = item.dateIssued || item.date || item.publishDate || "";
+        return {
+          id: item.resultId || item.packageId || `govinfo-${idx}-${Math.random().toString(36).slice(2,7)}`,
+          title: item.title || item.resultTitle || "GovInfo record",
+          url: link,
+          summary: summaryParts.join(" · ") || "Government Publishing Office record",
+          timestamp: dateIssued,
+          confidence: clamp01(0.75 - idx * 0.025)
+        };
+      });
+    }
+  },
+  OpenCorporates: {
+    color: "#f59e0b",
+    keyLabel: "OpenCorporates API Token",
+    keyHelp: "Global company registry search results.",
+    keyLink: "https://api.opencorporates.com/documentation/API-Reference",
+    requiresKey: true,
+    async fetcher(query, key, { signal } = {}) {
+      const url = new URL("https://api.opencorporates.com/v0.4/companies/search");
+      url.searchParams.set("q", query);
+      url.searchParams.set("order", "score");
+      url.searchParams.set("api_token", key);
+      url.searchParams.set("per_page", "25");
+      const json = await fetchJson(url.toString(), { signal });
+      const companies = json?.results?.companies || [];
+      return companies.slice(0, 20).map((entry, idx) => {
+        const company = entry.company || {};
+        const summaryParts = [];
+        if (company.jurisdiction_code) summaryParts.push(company.jurisdiction_code.toUpperCase());
+        if (company.company_number) summaryParts.push(`#${company.company_number}`);
+        if (company.company_type) summaryParts.push(company.company_type);
+        const confidenceBase = typeof company.score === "number" ? company.score : (1 - idx * 0.035);
+        return {
+          id: company.company_number || company.opencorporates_url || `oc-${idx}-${Math.random().toString(36).slice(2,7)}`,
+          title: company.name || "OpenCorporates result",
+          url: company.opencorporates_url || "https://opencorporates.com/",
+          summary: summaryParts.join(" · ") || "Company registry record",
+          timestamp: company.incorporation_date || company.dissolution_date || "",
+          confidence: clamp01(confidenceBase)
+        };
+      });
+    }
+  }
 };
-const SOURCES = ["FEC","GovInfo","OpenCorporates","EPA","SAM.gov","FCC","CollegeScorecard"];
 
-/* -------- State -------- */
-let active = new Set(SOURCES); // all ON
+const SOURCES = Object.keys(SOURCE_CONFIG);
+const PALETTE = Object.fromEntries(SOURCES.map((s) => [s, SOURCE_CONFIG[s].color]));
+const KEY_STORAGE_PREFIX = "osintVisualizer:key:";
+
+let active = new Set(SOURCES);
 let data = [];
+let currentAbort = null;
 
-/* -------- DOM -------- */
 const chipsEl = document.getElementById("chips");
-const hitsEl  = document.getElementById("hits");
+const hitsEl = document.getElementById("hits");
 const activeCountEl = document.getElementById("activeCount");
 const metricsEl = document.getElementById("metrics");
-const groupsEl  = document.getElementById("groups");
-const qEl       = document.getElementById("q");
-const btnEl     = document.getElementById("btn");
-const noteEl    = document.getElementById("note");
-const canvas    = document.getElementById("spireCanvas");
-const ctx       = canvas.getContext("2d");
+const groupsEl = document.getElementById("groups");
+const qEl = document.getElementById("q");
+const btnEl = document.getElementById("btn");
+const noteEl = document.getElementById("note");
+const keysBtn = document.getElementById("keysBtn");
+const keysModal = document.getElementById("keysModal");
+const keysForm = document.getElementById("keysForm");
+const keysFieldsEl = document.getElementById("keysFields");
+const closeKeysBtn = document.getElementById("closeKeys");
+const canvas = document.getElementById("spireCanvas");
+const ctx = canvas.getContext("2d");
 
-/* -------- Utils -------- */
-const showNote = (m)=>{ noteEl.style.display=m?"block":"none"; noteEl.textContent=m||""; };
-const fmtPct = (x)=> `${Math.round((x||0)*100)}%`;
-const fmtInt = (x)=> new Intl.NumberFormat().format(x||0);
-const fmtDate = (iso)=>{ const d=new Date(iso); return isNaN(+d)?"":d.toLocaleString(); };
-const esc = (s)=> String(s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const hasStorage = (() => {
+  try {
+    const testKey = "__osint_test__";
+    window.localStorage.setItem(testKey, "1");
+    window.localStorage.removeItem(testKey);
+    return true;
+  } catch (err) {
+    return false;
+  }
+})();
 
-/* -------- Chips -------- */
-function buildChips(){
-  chipsEl.innerHTML = "";
-  SOURCES.forEach((s)=>{
-    const b = document.createElement("button");
-    b.className = "chip active";
-    b.style.boxShadow = `0 0 0 2px ${PALETTE[s]} inset`;
-    b.style.background = PALETTE[s];
-    b.style.color = "#fff";
-    b.dataset.source = s;
-    b.innerHTML = `<span class="dot" style="background:${PALETTE[s]}"></span>${s}`;
-    b.onclick = () => {
-      if (active.has(s)){ active.delete(s); b.classList.remove("active"); b.style.color=""; b.style.background="#fff"; }
-      else{ active.add(s); b.classList.add("active"); b.style.color="#fff"; b.style.background=PALETTE[s]; }
-      render();
-    };
-    chipsEl.appendChild(b);
-  });
-  document.getElementById("selectAll").onclick = (e)=>{e.preventDefault(); active=new Set(SOURCES); buildChips(); render();};
-  document.getElementById("clearAll").onclick  = (e)=>{e.preventDefault(); active=new Set(); buildChips(); render();};
+const clamp01 = (x) => Math.max(0, Math.min(1, Number(x) || 0));
+const fmtPct = (x) => `${Math.round((x || 0) * 100)}%`;
+const fmtInt = (x) => new Intl.NumberFormat().format(x || 0);
+const fmtDate = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return isNaN(+d) ? "" : d.toLocaleString();
+};
+const esc = (s) => String(s || "").replace(/[&<>\"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c]));
+
+function note(message, variant = "info") {
+  if (message) {
+    noteEl.style.display = "block";
+    noteEl.textContent = message;
+    noteEl.className = `note note-${variant}`;
+  } else {
+    noteEl.style.display = "none";
+    noteEl.textContent = "";
+    noteEl.className = "note";
+  }
 }
 
-/* -------- Mock data -------- */
-function mockItems(q, source, nMin=3, nMax=9){
-  const n = nMin + Math.floor(Math.random()*(nMax-nMin+1));
-  const now = Date.now();
-  const out = [];
-  for (let i=0;i<n;i++){
-    out.push({
-      id:`${source}-${i}-${Math.random().toString(36).slice(2,7)}`,
-      title:`${source} match ${i+1} · ${q || 'sample'}`,
-      url:"https://example.com/item",
-      summary:`Synthetic preview text for “${q || 'query'}” from ${source}.`,
-      source,
-      confidence:0.55 + Math.random()*0.4,  // 0.55..0.95
-      severity:Math.floor(Math.random()*100),
-      timestamp:new Date(now - Math.random()*86_400_000*14).toISOString()
-    });
+function setLoading(isLoading) {
+  btnEl.disabled = isLoading;
+  btnEl.textContent = isLoading ? "Searching…" : "Search";
+}
+
+function getStoredKey(source) {
+  if (!hasStorage) return "";
+  return window.localStorage.getItem(`${KEY_STORAGE_PREFIX}${source}`) || "";
+}
+
+function setStoredKey(source, value) {
+  if (!hasStorage) return;
+  if (value) window.localStorage.setItem(`${KEY_STORAGE_PREFIX}${source}`, value);
+  else window.localStorage.removeItem(`${KEY_STORAGE_PREFIX}${source}`);
+}
+
+async function fetchJson(url, { signal, timeoutMs = 15000 } = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  if (signal) {
+    if (signal.aborted) controller.abort();
+    else signal.addEventListener("abort", () => controller.abort(), { once: true });
   }
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function buildChips() {
+  chipsEl.innerHTML = "";
+  SOURCES.forEach((source) => {
+    const cfg = SOURCE_CONFIG[source];
+    const isActive = active.has(source);
+    const btn = document.createElement("button");
+    btn.className = `chip${isActive ? " active" : ""}`;
+    btn.style.boxShadow = `0 0 0 2px ${cfg.color} inset`;
+    if (isActive) {
+      btn.style.background = cfg.color;
+      btn.style.color = "#fff";
+    }
+    btn.dataset.source = source;
+    btn.innerHTML = `<span class="dot" style="background:${cfg.color}"></span>${source}`;
+    btn.onclick = () => {
+      if (active.has(source)) {
+        active.delete(source);
+        btn.classList.remove("active");
+        btn.style.color = "";
+        btn.style.background = "#fff";
+      } else {
+        active.add(source);
+        btn.classList.add("active");
+        btn.style.color = "#fff";
+        btn.style.background = cfg.color;
+      }
+      render();
+    };
+    chipsEl.appendChild(btn);
+  });
+  document.getElementById("selectAll").onclick = (e) => {
+    e.preventDefault();
+    active = new Set(SOURCES);
+    buildChips();
+    render();
+  };
+  document.getElementById("clearAll").onclick = (e) => {
+    e.preventDefault();
+    active = new Set();
+    buildChips();
+    render();
+  };
+}
+
+function loadKeys() {
+  const out = {};
+  SOURCES.forEach((source) => {
+    out[source] = getStoredKey(source);
+  });
   return out;
 }
 
-/* -------- Aggregate & grouping -------- */
-function aggregateBySource(items){
-  const m = new Map();
-  for (const it of items){
-    const k = it.source || "unknown";
-    if (!m.has(k)) m.set(k,{source:k,hits:0,confSum:0});
-    const r = m.get(k); r.hits += 1; r.confSum += (it.confidence||0);
-  }
-  const arr = Array.from(m.values()).map(r=>({
-    source:r.source,
-    hits:r.hits,
-    avgConfidence:r.confSum / Math.max(1,r.hits),
-    color:PALETTE[r.source] || PALETTE.unknown
-  })).sort((a,b)=> b.hits - a.hits);
-  return arr;
+function buildKeyFields() {
+  keysFieldsEl.innerHTML = "";
+  SOURCES.forEach((source) => {
+    const cfg = SOURCE_CONFIG[source];
+    if (!cfg.requiresKey && !cfg.keyLabel) return;
+    const label = document.createElement("label");
+    const title = document.createElement("span");
+    title.textContent = cfg.keyLabel || `${source} credential`;
+    label.appendChild(title);
+    const input = document.createElement("input");
+    input.type = "password";
+    input.name = source;
+    input.placeholder = cfg.requiresKey ? "Required" : "Optional";
+    input.autocomplete = "off";
+    input.value = getStoredKey(source);
+    label.appendChild(input);
+    if (cfg.keyHelp || cfg.keyLink) {
+      const help = document.createElement("div");
+      help.className = "helper";
+      if (cfg.keyLink) {
+        help.innerHTML = `${esc(cfg.keyHelp || "Get credentials.")} <a href="${cfg.keyLink}" target="_blank" rel="noreferrer">Get key ↗</a>`;
+      } else {
+        help.textContent = cfg.keyHelp || "";
+      }
+      label.appendChild(help);
+    }
+    keysFieldsEl.appendChild(label);
+  });
 }
-function groupBySource(items){
+
+let modalOpen = false;
+function toggleKeysModal(show) {
+  modalOpen = show;
+  keysModal.classList.toggle("open", show);
+  keysModal.setAttribute("aria-hidden", show ? "false" : "true");
+  if (show) {
+    buildKeyFields();
+    setTimeout(() => {
+      const firstInput = keysFieldsEl.querySelector("input");
+      firstInput?.focus();
+    }, 0);
+  } else {
+    keysBtn.focus();
+  }
+}
+
+keysBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  toggleKeysModal(true);
+});
+
+closeKeysBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  toggleKeysModal(false);
+});
+
+keysModal.addEventListener("click", (e) => {
+  if (e.target === keysModal) toggleKeysModal(false);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (modalOpen && e.key === "Escape") {
+    toggleKeysModal(false);
+  }
+});
+
+keysForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const saved = [];
+  const cleared = [];
+  const inputs = keysFieldsEl.querySelectorAll("input[name]");
+  inputs.forEach((input) => {
+    const source = input.name;
+    const value = input.value.trim();
+    setStoredKey(source, value);
+    if (value) saved.push(source);
+    else cleared.push(source);
+  });
+  toggleKeysModal(false);
+  if (saved.length || cleared.length) {
+    const parts = [];
+    if (saved.length) parts.push(`Saved ${saved.length} key${saved.length === 1 ? "" : "s"}.`);
+    if (cleared.length) parts.push(`Cleared ${cleared.length}.`);
+    note(parts.join(" "), "info");
+  }
+});
+
+function aggregateBySource(items) {
   const m = new Map();
-  for (const it of items){
+  for (const it of items) {
     const k = it.source || "unknown";
-    if (!m.has(k)) m.set(k,[]);
+    if (!m.has(k)) m.set(k, { source: k, hits: 0, confSum: 0 });
+    const row = m.get(k);
+    row.hits += 1;
+    row.confSum += it.confidence || 0;
+  }
+  return Array.from(m.values()).map((row) => ({
+    source: row.source,
+    hits: row.hits,
+    avgConfidence: row.confSum / Math.max(1, row.hits),
+    color: PALETTE[row.source] || "#9ca3af"
+  })).sort((a, b) => b.hits - a.hits);
+}
+
+function groupBySource(items) {
+  const m = new Map();
+  for (const it of items) {
+    const k = it.source || "unknown";
+    if (!m.has(k)) m.set(k, []);
     m.get(k).push(it);
   }
-  for (const [k,arr] of m.entries()){
-    arr.sort((a,b)=> (new Date(b.timestamp||0)) - (new Date(a.timestamp||0)));
-    m.set(k,arr);
+  for (const [key, arr] of m.entries()) {
+    arr.sort((a, b) => (new Date(b.timestamp || 0)) - (new Date(a.timestamp || 0)));
+    m.set(key, arr);
   }
   return Array.from(m.entries());
 }
 
-/* -------- Spire drawing (canvas) -------- */
-function drawSpires(aggs){
+function drawSpires(aggs) {
   const dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth || canvas.parentElement.clientWidth;
   const h = canvas.clientHeight || 380;
-  canvas.width  = w * dpr; canvas.height = h * dpr;
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.clearRect(0,0,w,h);
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
 
-  const cx = w/2, cy = h/2 + 20;
-  const ringGap = 22, baseR = 28;
+  const cx = w / 2;
+  const cy = h / 2 + 20;
+  const ringGap = 22;
+  const baseR = 28;
 
-  // faint background rings
   ctx.strokeStyle = "#e5e7eb";
-  for (let r=baseR; r< Math.min(w,h)/2 - 8; r+=ringGap){
-    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.lineWidth = 1; ctx.stroke();
+  for (let r = baseR; r < Math.min(w, h) / 2 - 8; r += ringGap) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.lineWidth = 1;
+    ctx.stroke();
   }
 
-  aggs.forEach((a, idx)=>{
-    const r = baseR + idx*ringGap;
-    const lw = Math.min(6 + a.hits, 32);              // height = hits
-    const angle = (a.avgConfidence || 0) * Math.PI*2; // arc = avg conf
-    const start = -Math.PI/2;
+  aggs.forEach((agg, idx) => {
+    const radius = baseR + idx * ringGap;
+    const lw = Math.min(6 + agg.hits, 32);
+    const angle = (agg.avgConfidence || 0) * Math.PI * 2;
+    const start = -Math.PI / 2;
     ctx.beginPath();
-    ctx.arc(cx,cy,r,start,start + Math.max(angle, Math.PI*0.08));
-    ctx.strokeStyle = a.color;
+    ctx.arc(cx, cy, radius, start, start + Math.max(angle, Math.PI * 0.08));
+    ctx.strokeStyle = agg.color;
     ctx.lineCap = "round";
     ctx.lineWidth = lw;
     ctx.stroke();
   });
 }
 
-/* -------- Render -------- */
-function render(){
-  const filtered = data.filter(d=>active.has(d.source));
+function render() {
+  const filtered = data.filter((d) => active.has(d.source));
   const aggs = aggregateBySource(filtered);
   hitsEl.textContent = fmtInt(filtered.length);
   activeCountEl.textContent = active.size;
 
-  // metrics
-  metricsEl.innerHTML = aggs.map(a=>`
+  metricsEl.innerHTML = aggs.map((agg) => `
     <div class="metric">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span class="muted">${a.source}</span>
-        <span class="legendDot" style="background:${a.color}"></span>
+        <span class="muted">${agg.source}</span>
+        <span class="legendDot" style="background:${agg.color}"></span>
       </div>
-      <div class="k">${fmtInt(a.hits)}</div>
-      <div class="muted">avg conf ${fmtPct(a.avgConfidence)}</div>
+      <div class="k">${fmtInt(agg.hits)}</div>
+      <div class="muted">avg conf ${fmtPct(agg.avgConfidence)}</div>
     </div>
   `).join("");
 
   drawSpires(aggs);
 
   const groups = groupBySource(filtered);
-  groupsEl.innerHTML = groups.map(([src,arr])=>{
-    const color = PALETTE[src] || PALETTE.unknown;
-    const cards = arr.map(it=>`
+  groupsEl.innerHTML = groups.map(([source, arr]) => {
+    const color = PALETTE[source] || "#9ca3af";
+    const cards = arr.map((item) => `
       <div class="item">
-        <a href="${it.url}" target="_blank" rel="noreferrer">
-          <div class="title">${esc(it.title)}</div>
-          <div class="subtle" style="margin:6px 0">${esc(it.summary)}</div>
-          <div class="subtle">${src} · conf ${fmtPct(it.confidence)} · ${fmtDate(it.timestamp)}</div>
+        <a href="${item.url}" target="_blank" rel="noreferrer">
+          <div class="title">${esc(item.title)}</div>
+          <div class="subtle">${esc(item.summary)}</div>
+          <div class="subtle">${source} · conf ${fmtPct(item.confidence)}${item.timestamp ? ` · ${esc(fmtDate(item.timestamp))}` : ""}</div>
         </a>
       </div>
     `).join("");
@@ -277,7 +583,7 @@ function render(){
       <div>
         <div class="groupTitle">
           <span class="legendDot" style="background:${color}"></span>
-          ${src} <span class="muted">(${arr.length})</span>
+          ${source} <span class="muted">(${arr.length})</span>
         </div>
         <div class="cards">${cards}</div>
       </div>
@@ -285,26 +591,83 @@ function render(){
   }).join("") || `<div class="muted">No results yet. Toggle sources or run a search.</div>`;
 }
 
-/* -------- Search (mock only) -------- */
-function runSearch(){
-  const q = qEl.value.trim();
-  if (!q){ showNote("Type something to search, then press Search."); return; }
-  if (active.size === 0){ showNote("No sources selected. Click ‘Select all’ or enable some sources."); return; }
-  showNote("");
-  let out = [];
-  active.forEach(s => { out = out.concat(mockItems(q,s)); });
-  data = out;
-  render();
+async function runSearch() {
+  const query = qEl.value.trim();
+  if (!query) {
+    note("Type something to search, then press Search.", "warn");
+    return;
+  }
+  if (active.size === 0) {
+    note("No sources selected. Click ‘Select all’ or enable specific sources.", "warn");
+    return;
+  }
+
+  if (currentAbort) currentAbort.abort();
+  const controller = new AbortController();
+  currentAbort = controller;
+  setLoading(true);
+  note("Searching live data…", "info");
+
+  const keys = loadKeys();
+  const results = [];
+  const errors = [];
+  const missing = [];
+
+  const tasks = Array.from(active).map(async (source) => {
+    const cfg = SOURCE_CONFIG[source];
+    if (!cfg) return;
+    const providedKey = keys[source] || cfg.defaultKey || "";
+    if (cfg.requiresKey && !providedKey) {
+      missing.push(cfg.keyLabel || source);
+      return;
+    }
+    try {
+      const items = await cfg.fetcher(query, providedKey, { signal: controller.signal });
+      if (Array.isArray(items)) {
+        items.forEach((item) => {
+          results.push({ ...item, source });
+        });
+      }
+    } catch (err) {
+      if (controller.signal.aborted || err?.name === "AbortError") return;
+      const message = (err && err.message) ? err.message : "Unknown error";
+      errors.push(`${source}: ${message}`);
+    }
+  });
+
+  try {
+    await Promise.all(tasks);
+    if (controller.signal.aborted) return;
+    data = results;
+    render();
+
+    if (missing.length || errors.length) {
+      const parts = [];
+      if (missing.length) parts.push(`Add API keys for: ${missing.join(", ")}.`);
+      if (errors.length) parts.push(`Some sources failed: ${errors.join(" · ")}`);
+      note(parts.join(" "), missing.length && !errors.length ? "warn" : "error");
+    } else if (results.length) {
+      const sourcesUsed = new Set(results.map((item) => item.source));
+      note(`Loaded ${fmtInt(results.length)} live results from ${sourcesUsed.size} source${sourcesUsed.size === 1 ? "" : "s"}.`, "info");
+    } else {
+      note("No results returned. Try a different search term or add more sources.", "warn");
+    }
+  } finally {
+    if (!controller.signal.aborted) setLoading(false);
+    if (currentAbort === controller) currentAbort = null;
+  }
 }
 
-/* -------- Init -------- */
-function init(){
-  buildChips();           // all chips ON by default
-  qEl.value = "";         // ensure empty input on load
-  render();               // draw empty state
-  btnEl.onclick = runSearch;
-  qEl.addEventListener("keydown",(e)=> e.key==="Enter" && runSearch());
+function init() {
+  buildChips();
+  render();
+  qEl.value = "";
+  btnEl.addEventListener("click", runSearch);
+  qEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") runSearch();
+  });
 }
+
 init();
 </script>
 </body>
