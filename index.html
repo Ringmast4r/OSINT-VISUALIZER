@@ -1,19 +1,306 @@
 <!doctype html>
-<html>
-  <body>
-    <h1>OSINT Test</h1>
-    <input id="q" placeholder="Search term"/>
-    <button onclick="search()">Search</button>
-    <div id="results"></div>
-    <script>
-      const KEY = "bf4683e126284606827da58c9459b258"; // NewsAPI key
-      async function search() {
-        const q = document.getElementById("q").value;
-        const r = await fetch(`https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&apiKey=${KEY}`);
-        const j = await r.json();
-        document.getElementById("results").innerHTML =
-          (j.articles||[]).map(a=>`<p><a href="${a.url}" target="_blank">${a.title}</a></p>`).join("");
-      }
-    </script>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>OSINT Visualizer (GitHub Pages)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{--bg:#f7f7fb;--fg:#0f172a;--muted:#64748b;--card:#fff;--border:#e2e8f0;--accent:#111827}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);
+      font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
+    .header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+    .logo{width:40px;height:40px;border-radius:12px;background:#0f172a;color:#fff;
+      display:flex;align-items:center;justify-content:center;font-weight:700}
+    h1{margin:0;font-size:20px} .sub{color:var(--muted);font-size:13px;margin-top:2px}
+    .row{display:flex;gap:8px;margin:14px 0}
+    input[type="text"]{flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:10px}
+    button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:12px;background:#fff;cursor:pointer}
+    .chip.active{background:#0f172a;color:#fff;border-color:#0f172a}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+    .item{border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff}
+    .item a{color:inherit;text-decoration:none} .title{font-weight:600;margin-bottom:6px}
+    .subtle{font-size:12px;color:var(--muted)} .note{margin-top:10px;color:#a15c00;background:#fff7e6;border:1px solid #ffe1b3;padding:8px;border-radius:10px;font-size:13px}
+    canvas{width:100%;height:260px !important;background:#fff;border:1px solid var(--border);border-radius:12px}
+  </style>
+  <!-- Chart.js (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="logo">OS</div>
+      <div>
+        <h1>OSINT Visualizer</h1>
+        <div class="sub">Live browser demo (GitHub Pages) · NewsAPI · GovInfo · IPinfo · (FEC if CORS allows)</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <input id="q" placeholder="Search term (e.g., mark zuckerberg) or IPv4 (e.g., 8.8.8.8)" />
+      <button id="btn">Search</button>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="chips" id="chips"></div>
+      <div id="stats" class="subtle" style="margin-top:8px"></div>
+      <div style="margin-top:12px"><canvas id="chart"></canvas></div>
+      <div id="note" class="note" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><strong>Results</strong></div>
+        <div class="subtle">Grouped by source · newest first</div>
+      </div>
+      <div id="results"></div>
+    </div>
+  </div>
+
+<script>
+/* =====================  CONFIG: YOUR KEYS  ===================== */
+const KEYS = {
+  NEWSAPI_KEY   : "bf4683e126284606827da58c9459b258",
+  DATAGOV_KEY_1 : "GAlYdNS83PguKK6XqfFCVz6RPUIKrz9PKZs3dhpb",
+  DATAGOV_KEY_2 : "84OJloVqtApLlfEz4kMlX0i5iDfSRR48o0y6ITeh",
+  IPINFO_TOKEN  : "6b95dcf1b06bb7",
+};
+const DATAGOV_KEY = KEYS.DATAGOV_KEY_1 || KEYS.DATAGOV_KEY_2;
+
+/* =====================  UI STATE  ===================== */
+const SOURCES = ["NewsAPI","GovInfo","IPinfo","FEC"]; // FEC will be skipped if CORS blocks
+let active = new Set(SOURCES);
+let data = []; // flattened items
+
+const chipsEl   = document.getElementById('chips');
+const resultsEl = document.getElementById('results');
+const statsEl   = document.getElementById('stats');
+const noteEl    = document.getElementById('note');
+const qEl       = document.getElementById('q');
+const btnEl     = document.getElementById('btn');
+
+SOURCES.forEach((s) => {
+  const b = document.createElement('button');
+  b.className = 'chip active';
+  b.textContent = s;
+  b.onclick = () => {
+    if (active.has(s)) { active.delete(s); b.classList.remove('active'); }
+    else { active.add(s); b.classList.add('active'); }
+    render();
+  };
+  chipsEl.appendChild(b);
+});
+
+btnEl.onclick = runSearch;
+qEl.addEventListener('keydown', (e) => (e.key === 'Enter') && runSearch());
+
+/* =====================  FETCHERS  ===================== */
+function safeUrl(raw) {
+  if (!raw) return "";
+  const s = String(raw).trim(); const lower = s.toLowerCase();
+  if (lower.startsWith("javascript:")) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^www\./i.test(s))       return `https://${s}`;
+  if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(s)) return `https://${s}`;
+  return "";
+}
+
+async function fetchNewsAPI(q) {
+  if (!KEYS.NEWSAPI_KEY) return [];
+  const r = await fetch(`https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&apiKey=${KEYS.NEWSAPI_KEY}`);
+  if (!r.ok) throw new Error(`NewsAPI HTTP ${r.status}`);
+  const j = await r.json();
+  return (j.articles || []).map((a, i) => ({
+    id: `newsapi-${i}`,
+    title: a.title,
+    url: a.url,
+    summary: a.description,
+    source: "NewsAPI",
+    confidence: 0.55,
+    severity: 5,
+    timestamp: a.publishedAt
+  }));
+}
+
+async function fetchGovInfo(q) {
+  if (!DATAGOV_KEY) return [];
+  const r = await fetch(`https://api.govinfo.gov/search?query=${encodeURIComponent(q)}&api_key=${DATAGOV_KEY}`);
+  if (!r.ok) throw new Error(`GovInfo HTTP ${r.status}`);
+  const j = await r.json();
+  return (j.results || []).map((g, i) => ({
+    id: `govinfo-${g.granuleId || i}`,
+    title: g.title || g.granuleId,
+    url: g.pdfLink || g.htmlLink,
+    summary: g.collectionCode,
+    source: "GovInfo",
+    confidence: 0.6,
+    severity: 15,
+    timestamp: g.dateIssued || g.dateIngested
+  }));
+}
+
+async function fetchIPinfo(q) {
+  if (!KEYS.IPINFO_TOKEN) return [];
+  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(q)) return [];
+  const r = await fetch(`https://ipinfo.io/${encodeURIComponent(q)}?token=${KEYS.IPINFO_TOKEN}`);
+  if (!r.ok) throw new Error(`IPinfo HTTP ${r.status}`);
+  const info = await r.json();
+  return [{
+    id: `ipinfo-${info.ip}`,
+    title: `${info.ip} · ${info.city || ''} ${info.region || ''}`.trim(),
+    url: `https://ipinfo.io/${info.ip}`,
+    summary: `${info.org || ''} ${info.country || ''}`.trim(),
+    source: "IPinfo",
+    confidence: 0.9,
+    severity: 0,
+    timestamp: new Date().toISOString()
+  }];
+}
+
+// FEC (will work only if CORS allows in your browser)
+async function fetchFEC(q) {
+  if (!DATAGOV_KEY) return [];
+  const url = `https://api.open.fec.gov/v1/names/candidates/?q=${encodeURIComponent(q)}&api_key=${DATAGOV_KEY}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`FEC HTTP ${r.status}`);
+  const j = await r.json();
+  return (j.results || []).map((r, i) => ({
+    id: `fec-${r.candidate_id || i}`,
+    title: r.name,
+    url: r.candidate_id ? `https://www.fec.gov/data/candidate/${r.candidate_id}/` : undefined,
+    summary: r.office_full || undefined,
+    source: "FEC",
+    confidence: 0.7,
+    severity: 10,
+    timestamp: r.load_date
+  }));
+}
+
+/* =====================  SEARCH / AGGREGATE / RENDER  ===================== */
+function fmtDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return isNaN(+d) ? String(iso) : d.toLocaleString();
+}
+
+function aggregate(items) {
+  const m = new Map();
+  for (const it of items) {
+    const k = it.source || 'unknown';
+    if (!m.has(k)) m.set(k, { source:k, hits:0, conf:0 });
+    const row = m.get(k);
+    row.hits += 1;
+    row.conf += (it.confidence ?? 0);
+  }
+  const arr = Array.from(m.values()).map((r) => ({
+    source: r.source,
+    hits: r.hits,
+    avgConf: r.conf / Math.max(1, r.hits)
+  }));
+  arr.sort((a,b) => b.hits - a.hits);
+  return arr;
+}
+
+async function runSearch() {
+  const q = qEl.value.trim();
+  if (!q) { showNote("Type a search term or IPv4, then press Search."); return; }
+  showNote("");
+
+  resultsEl.innerHTML = "Searching…";
+  statsEl.textContent = "";
+  data = [];
+
+  const tasks = [];
+  if (active.has("NewsAPI")) tasks.push(fetchNewsAPI(q).catch(e => (logNote(e), [])));
+  if (active.has("GovInfo")) tasks.push(fetchGovInfo(q).catch(e => (logNote(e), [])));
+  if (active.has("IPinfo"))  tasks.push(fetchIPinfo(q).catch(e => (logNote(e), [])));
+  if (active.has("FEC"))     tasks.push(fetchFEC(q).catch(e => (logNote("FEC may be blocked by CORS in browser"), [])));
+
+  const bundles = await Promise.all(tasks);
+  data = bundles.flat();
+  render();
+}
+
+function groupBySource(items) {
+  const m = new Map();
+  for (const it of items) {
+    const k = it.source || "unknown";
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(it);
+  }
+  for (const [k, arr] of m.entries()) {
+    arr.sort((a,b) => (new Date(b.timestamp||0)) - (new Date(a.timestamp||0)));
+    m.set(k, arr);
+  }
+  return Array.from(m.entries());
+}
+
+let chart;
+function drawChart(aggs) {
+  const ctx = document.getElementById('chart').getContext('2d');
+  const labels = aggs.map(a => a.source);
+  const hits   = aggs.map(a => a.hits);
+  const conf   = aggs.map(a => Math.round((a.avgConf||0)*100));
+
+  const dataCfg = {
+    labels,
+    datasets: [
+      { label:'Hits', data:hits, type:'bar', borderWidth:0, backgroundColor:'#0ea5e9' },
+      { label:'Avg Confidence %', data:conf, type:'line', yAxisID:'y1', tension:0.3, borderColor:'#111827', pointRadius:3 }
+    ]
+  };
+  const options = {
+    responsive:true,
+    scales: {
+      y : { beginAtZero:true, title:{display:true, text:'Hits'} },
+      y1: { beginAtZero:true, position:'right', title:{display:true, text:'Confidence %'}, min:0, max:100 }
+    },
+    plugins: { legend:{ display:true } }
+  };
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, { data:dataCfg, options });
+}
+
+function render() {
+  const filtered = data.filter(d => active.has(d.source || "unknown"));
+  const aggs = aggregate(filtered);
+  drawChart(aggs);
+  statsEl.textContent = `Total hits: ${filtered.length} · Active sources: ${active.size}`;
+
+  if (!filtered.length) {
+    resultsEl.innerHTML = `<div class="subtle">No results yet. Try a broader query or enable more sources above.</div>`;
+    return;
+  }
+
+  // Build grouped HTML
+  const groups = groupBySource(filtered);
+  let html = '';
+  for (const [src, arr] of groups) {
+    html += `<div style="margin:10px 0"><div class="subtle" style="margin-bottom:6px"><strong>${src}</strong> (${arr.length})</div>
+             <div class="grid">`;
+    for (const it of arr) {
+      const url = safeUrl(it.url);
+      const body = `
+        <div class="item">
+          ${url ? `<a href="${url}" target="_blank" rel="noreferrer">` : `<div>`}
+            <div class="title">${escapeHtml(it.title || it.id)}</div>
+            <div class="subtle" style="margin:6px 0">${escapeHtml(it.summary || '')}</div>
+            <div class="subtle">${src} · conf ${Math.round((it.confidence||0)*100)}% · ${escapeHtml(fmtDate(it.timestamp))}</div>
+          ${url ? `</a>` : `</div>`}
+        </div>`;
+      html += body;
+    }
+    html += `</div></div>`;
+  }
+  resultsEl.innerHTML = html;
+}
+
+function showNote(msg) { noteEl.style.display = msg ? 'block':'none'; noteEl.textContent = msg; }
+function logNote(e) { console.warn(e); if (!noteEl.textContent) showNote(String(e)); }
+function escapeHtml(s){return String(s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]))}
+</script>
+</body>
 </html>
