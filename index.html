@@ -1,170 +1,223 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>OSINT Visualizer</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- TailwindCSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React + ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Recharts -->
-    <script src="https://unpkg.com/recharts/umd/Recharts.min.js"></script>
-    <!-- Framer Motion -->
-    <script src="https://unpkg.com/framer-motion/dist/framer-motion.umd.js"></script>
-    <!-- Lucide icons -->
-    <script src="https://unpkg.com/lucide-react/dist/lucide-react.umd.js"></script>
-  </head>
-  <body class="bg-gray-50">
-    <div id="root"></div>
+<head>
+  <meta charset="UTF-8" />
+  <title>OSINT Visualizer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Tailwind (fine for a small demo; warning in console is OK) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React 18 UMD -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <!-- Babel for JSX in-browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Recharts UMD -->
+  <script src="https://unpkg.com/recharts/umd/Recharts.min.js"></script>
+</head>
+<body class="bg-gray-50">
+  <div id="root"></div>
 
-    <script type="text/babel">
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+    const { ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis, Tooltip, Legend } = Recharts;
 
-      const { useState, useMemo } = React;
-      const { motion } = window['framer-motion'];
-      const { ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis, Tooltip, Legend } = Recharts;
-      const { Database, Filter, RefreshCw, Search, Link: LinkIcon } = window.lucideReact;
+    // === Your keys (browser-only demo) ===
+    const KEYS = {
+      NEWSAPI_KEY: "bf4683e126284606827da58c9459b258",
+      DATAGOV_KEY: "GAlYdNS83PguKK6XqfFCVz6RPUIKrz9PKZs3dhpb",
+      IPINFO_TOKEN: "6b95dcf1b06bb7",
+    };
 
-      const KEYS = {
-        NEWSAPI_KEY: "bf4683e126284606827da58c9459b258",
-        DATAGOV_KEY: "GAlYdNS83PguKK6XqfFCVz6RPUIKrz9PKZs3dhpb",
-        IPINFO_TOKEN: "6b95dcf1b06bb7"
-      };
+    // Utils
+    const fmtPct = (x) => `${Math.round((x ?? 0) * 100)}%`;
+    const fmtInt = (x) => new Intl.NumberFormat().format(x ?? 0);
+    const fmtDate = (iso) => {
+      if (!iso) return "";
+      const dt = new Date(iso);
+      return isNaN(+dt) ? String(iso) : dt.toLocaleString();
+    };
+    const PALETTE = ["#2563eb","#16a34a","#f59e0b","#dc2626","#7c3aed","#0ea5e9","#059669","#d946ef","#ea580c","#0891b2"];
 
-      const fmtPct = (x) => `${Math.round((x ?? 0) * 100)}%`;
-      const fmtInt = (x) => new Intl.NumberFormat().format(x ?? 0);
-      const fmtDate = (iso) => {
-        if (!iso) return "";
-        const dt = new Date(iso);
-        return isNaN(+dt) ? String(iso) : dt.toLocaleString();
-      };
-
-      const PALETTE = ["#2563eb","#16a34a","#f59e0b","#dc2626","#7c3aed","#0ea5e9","#059669","#d946ef","#ea580c","#0891b2"];
-
-      function aggregateBySource(items) {
-        const map = new Map();
-        for (const it of items) {
-          const key = it.source || "unknown";
-          if (!map.has(key)) map.set(key, { source: key, hits: 0, cSum: 0, sSum: 0 });
-          const row = map.get(key);
-          row.hits += 1;
-          row.cSum += (it.confidence ?? 0);
-          row.sSum += (it.severity ?? 0);
-        }
-        return Array.from(map.values()).map((r, i) => ({
+    function aggregateBySource(items) {
+      const map = new Map();
+      for (const it of items) {
+        const key = it.source || "unknown";
+        if (!map.has(key)) map.set(key, { source: key, hits: 0, cSum: 0 });
+        const row = map.get(key);
+        row.hits += 1;
+        row.cSum += (it.confidence ?? 0);
+      }
+      return Array.from(map.values())
+        .map((r, i) => ({
           source: r.source,
           hits: r.hits,
           avgConfidence: r.cSum / Math.max(r.hits, 1),
-          avgSeverity: r.sSum / Math.max(r.hits, 1),
           fill: PALETTE[i % PALETTE.length],
-        })).sort((a, b) => b.hits - a.hits);
-      }
+        }))
+        .sort((a, b) => b.hits - a.hits);
+    }
 
-      async function fetchNewsAPI(q) {
-        const r = await fetch(`https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&apiKey=${KEYS.NEWSAPI_KEY}`);
-        const j = await r.json();
-        return (j.articles || []).map((a, i) => ({
-          id: `newsapi-${i}`,
-          title: a.title,
-          url: a.url,
-          summary: a.description,
-          source: "NewsAPI",
-          confidence: 0.5,
-          severity: 5,
-          timestamp: a.publishedAt,
-        }));
-      }
+    // Browser-friendly sources
+    async function fetchNewsAPI(q) {
+      const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&apiKey=${KEYS.NEWSAPI_KEY}`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`NewsAPI HTTP ${r.status}`);
+      const j = await r.json();
+      return (j.articles || []).map((a, i) => ({
+        id: `newsapi-${i}`,
+        title: a.title,
+        url: a.url,
+        summary: a.description,
+        source: "NewsAPI",
+        confidence: 0.5,
+        severity: 5,
+        timestamp: a.publishedAt,
+      }));
+    }
 
-      async function fetchGovInfo(q) {
-        const r = await fetch(`https://api.govinfo.gov/search?query=${encodeURIComponent(q)}&api_key=${KEYS.DATAGOV_KEY}`);
-        const j = await r.json();
-        return (j.results || []).map((g, i) => ({
-          id: `govinfo-${g.granuleId || i}`,
-          title: g.title || g.granuleId,
-          url: g.pdfLink || g.htmlLink,
-          summary: g.collectionCode,
-          source: "GovInfo",
-          confidence: 0.6,
-          severity: 15,
-          timestamp: g.dateIssued || g.dateIngested,
-        }));
-      }
+    async function fetchGovInfo(q) {
+      const url = `https://api.govinfo.gov/search?query=${encodeURIComponent(q)}&api_key=${KEYS.DATAGOV_KEY}`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`GovInfo HTTP ${r.status}`);
+      const j = await r.json();
+      return (j.results || []).map((g, i) => ({
+        id: `govinfo-${g.granuleId || i}`,
+        title: g.title || g.granuleId,
+        url: g.pdfLink || g.htmlLink,
+        summary: g.collectionCode,
+        source: "GovInfo",
+        confidence: 0.6,
+        severity: 15,
+        timestamp: g.dateIssued || g.dateIngested,
+      }));
+    }
 
-      async function fetchIPinfo(q) {
-        if (!/^\\d{1,3}(\\.\\d{1,3}){3}$/.test(q)) return [];
-        const r = await fetch(`https://ipinfo.io/${encodeURIComponent(q)}?token=${KEYS.IPINFO_TOKEN}`);
-        const info = await r.json();
-        return [{
-          id: `ipinfo-${info.ip}`,
-          title: `${info.ip} · ${info.city || ''} ${info.region || ''}`.trim(),
-          url: `https://ipinfo.io/${info.ip}`,
-          summary: `${info.org || ''} ${info.country || ''}`.trim(),
-          source: "IPinfo",
-          confidence: 0.9,
-          severity: 0,
-          timestamp: new Date().toISOString(),
-        }];
-      }
+    async function fetchIPinfo(q) {
+      if (!/^(\\d{1,3}\\.){3}\\d{1,3}$/.test(q)) return [];
+      const url = `https://ipinfo.io/${encodeURIComponent(q)}?token=${KEYS.IPINFO_TOKEN}`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`IPinfo HTTP ${r.status}`);
+      const info = await r.json();
+      return [{
+        id: `ipinfo-${info.ip}`,
+        title: `${info.ip} · ${info.city || ''} ${info.region || ''}`.trim(),
+        url: `https://ipinfo.io/${info.ip}`,
+        summary: `${info.org || ''} ${info.country || ''}`.trim(),
+        source: "IPinfo",
+        confidence: 0.9,
+        severity: 0,
+        timestamp: new Date().toISOString(),
+      }];
+    }
 
-      function OSINTVisualizer() {
-        const [query, setQuery] = useState("");
-        const [sources] = useState(["NewsAPI", "GovInfo", "IPinfo"]);
-        const [active, setActive] = useState(new Set(sources));
-        const [loading, setLoading] = useState(false);
-        const [data, setData] = useState([]);
+    function App() {
+      const [query, setQuery] = useState("");
+      const [sources] = useState(["NewsAPI", "GovInfo", "IPinfo"]);
+      const [active, setActive] = useState(new Set(sources));
+      const [loading, setLoading] = useState(false);
+      const [data, setData] = useState([]);
+      const [note, setNote] = useState("");
 
-        const filtered = useMemo(() => data.filter(d => active.has(d.source)), [data, active]);
-        const aggregates = useMemo(() => aggregateBySource(filtered), [filtered]);
+      const filtered = useMemo(() => data.filter(d => active.has(d.source)), [data, active]);
+      const aggregates = useMemo(() => aggregateBySource(filtered), [filtered]);
 
-        async function runSearch() {
-          setLoading(true);
-          const tasks = [];
-          if (active.has("NewsAPI")) tasks.push(fetchNewsAPI(query).catch(() => []));
-          if (active.has("GovInfo")) tasks.push(fetchGovInfo(query).catch(() => []));
-          if (active.has("IPinfo")) tasks.push(fetchIPinfo(query).catch(() => []));
-          const bundles = await Promise.all(tasks);
-          setData(bundles.flat());
-          setLoading(false);
+      async function runSearch() {
+        if (!query.trim()) {
+          setNote("Type a search term or IPv4 address, then press Search.");
+          return;
         }
+        setLoading(true);
+        setNote("");
+        const tasks = [];
+        if (active.has("NewsAPI")) tasks.push(fetchNewsAPI(query).catch(e => (setNote(prev => prev || e.message), [])));
+        if (active.has("GovInfo")) tasks.push(fetchGovInfo(query).catch(e => (setNote(prev => prev || e.message), [])));
+        if (active.has("IPinfo")) tasks.push(fetchIPinfo(query).catch(e => (setNote(prev => prev || e.message), [])));
+        const bundles = await Promise.all(tasks);
+        setData(bundles.flat());
+        setLoading(false);
+      }
 
-        return (
-          <div className="p-6 max-w-6xl mx-auto">
-            <h1 className="text-2xl font-bold mb-4 flex gap-2 items-center"><Database/> OSINT Visualizer</h1>
-            <div className="flex gap-2 mb-4">
-              <input value={query} onChange={e => setQuery(e.target.value)}
-                     className="flex-1 border rounded p-2" placeholder="Search term or IP..." />
-              <button onClick={runSearch} className="bg-black text-white px-4 rounded">{loading ? "Searching..." : "Search"}</button>
-            </div>
+      function toggleSource(s) {
+        const next = new Set(active);
+        next.has(s) ? next.delete(s) : next.add(s);
+        setActive(next);
+      }
 
-            <ResponsiveContainer width="100%" height={300}>
-              <RadialBarChart innerRadius="20%" outerRadius="100%" data={aggregates.map(a => ({
-                name: a.source, hits: a.hits, confidencePct: Math.round((a.avgConfidence||0)*100), fill: a.fill
-              }))} startAngle={90} endAngle={-270}>
-                <PolarAngleAxis type="number" domain={[0,100]} dataKey="confidencePct" tick={false}/>
-                <Tooltip/>
-                {aggregates.map((d,i)=><RadialBar key={d.source} dataKey="confidencePct" fill={d.fill}/>)}
-                <Legend/>
+      return (
+        <div className="p-6 max-w-6xl mx-auto">
+          <h1 className="text-2xl font-bold mb-4">OSINT Visualizer</h1>
+
+          <div className="flex gap-2 mb-4">
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              className="flex-1 border rounded px-3 py-2"
+              placeholder="Search term (e.g., mark zuckerberg) or IPv4 (e.g., 8.8.8.8)"
+              onKeyDown={e => e.key === 'Enter' && runSearch()}
+            />
+            <button onClick={runSearch} className="bg-black text-white px-4 rounded">
+              {loading ? "Searching…" : "Search"}
+            </button>
+          </div>
+
+          <div className="mb-4 flex flex-wrap gap-2">
+            {sources.map((s, i) => (
+              <button
+                key={s}
+                onClick={() => toggleSource(s)}
+                className={`px-3 py-1.5 rounded-full border text-sm ${active.has(s) ? "bg-gray-900 text-white" : "bg-white"}`}
+                style={{ boxShadow: active.has(s) ? `0 0 0 2px ${PALETTE[i % PALETTE.length]} inset` : undefined }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+
+          <div className="w-full h-[320px] bg-white border rounded mb-6">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadialBarChart
+                innerRadius="20%"
+                outerRadius="100%"
+                data={aggregates.map(a => ({
+                  name: a.source,
+                  hits: a.hits,
+                  confidencePct: Math.round((a.avgConfidence || 0) * 100),
+                  fill: a.fill
+                }))}
+                startAngle={90}
+                endAngle={-270}
+              >
+                <PolarAngleAxis type="number" domain={[0, 100]} dataKey="confidencePct" tick={false} />
+                <Tooltip />
+                {aggregates.map(d => (
+                  <RadialBar key={d.source} dataKey="confidencePct" fill={d.fill} />
+                ))}
+                <Legend />
               </RadialBarChart>
             </ResponsiveContainer>
-
-            <div className="mt-6">
-              {filtered.map(r => (
-                <a key={r.id} href={r.url} target="_blank" rel="noreferrer" className="block border rounded p-2 mb-2 hover:bg-gray-100">
-                  <div className="font-medium">{r.title}</div>
-                  <div className="text-sm text-gray-600">{r.summary}</div>
-                  <div className="text-xs text-gray-400">{r.source} · {fmtDate(r.timestamp)}</div>
-                </a>
-              ))}
-            </div>
           </div>
-        );
-      }
 
-      ReactDOM.createRoot(document.getElementById('root')).render(<OSINTVisualizer/>);
+          {note && <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mb-4">{note}</div>}
 
-    </script>
-  </body>
+          <div className="space-y-2">
+            {filtered.map(r => (
+              <a key={r.id} href={r.url} target="_blank" rel="noreferrer" className="block border rounded p-3 bg-white hover:bg-gray-50">
+                <div className="font-medium">{r.title}</div>
+                <div className="text-sm text-gray-600">{r.summary}</div>
+                <div className="text-xs text-gray-400">{r.source} · {fmtDate(r.timestamp)}</div>
+              </a>
+            ))}
+            {!filtered.length && !loading && (
+              <div className="text-sm text-gray-600">
+                No results yet. Try a broader search term, or enable more sources above.
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
 </html>
