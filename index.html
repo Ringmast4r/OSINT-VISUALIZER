@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>OSINT Visualizer (GitHub Pages)</title>
+  <title>OSINT Visualizer Demo (Mock Only)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root{--bg:#f7f7fb;--fg:#0f172a;--muted:#64748b;--card:#fff;--border:#e2e8f0;--accent:#111827}
@@ -26,7 +26,6 @@
     .subtle{font-size:12px;color:var(--muted)} .note{margin-top:10px;color:#a15c00;background:#fff7e6;border:1px solid #ffe1b3;padding:8px;border-radius:10px;font-size:13px}
     canvas{width:100%;height:260px !important;background:#fff;border:1px solid var(--border);border-radius:12px}
   </style>
-  <!-- Chart.js (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -34,13 +33,13 @@
     <div class="header">
       <div class="logo">OS</div>
       <div>
-        <h1>OSINT Visualizer</h1>
-        <div class="sub">Live browser demo (GitHub Pages) · NewsAPI · GovInfo · IPinfo · (FEC if CORS allows)</div>
+        <h1>OSINT Visualizer Demo</h1>
+        <div class="sub">Mock data only · works fully on GitHub Pages</div>
       </div>
     </div>
 
     <div class="row">
-      <input id="q" placeholder="Search term (e.g., mark zuckerberg) or IPv4 (e.g., 8.8.8.8)" />
+      <input id="q" placeholder="Search term (e.g., mark zuckerberg)" />
       <button id="btn">Search</button>
     </div>
 
@@ -48,7 +47,6 @@
       <div class="chips" id="chips"></div>
       <div id="stats" class="subtle" style="margin-top:8px"></div>
       <div style="margin-top:12px"><canvas id="chart"></canvas></div>
-      <div id="note" class="note" style="display:none"></div>
     </div>
 
     <div class="card">
@@ -61,40 +59,14 @@
   </div>
 
 <script>
-/* =====================  CONFIG: YOUR KEYS  ===================== */
-const KEYS = {
-  NEWSAPI_KEY   : "bf4683e126284606827da58c9459b258",
-  DATAGOV_KEY_1 : "GAlYdNS83PguKK6XqfFCVz6RPUIKrz9PKZs3dhpb",
-  DATAGOV_KEY_2 : "84OJloVqtApLlfEz4kMlX0i5iDfSRR48o0y6ITeh",
-  IPINFO_TOKEN  : "6b95dcf1b06bb7",
-};
-const DATAGOV_KEY = KEYS.DATAGOV_KEY_1 || KEYS.DATAGOV_KEY_2;
-
-/* =====================  DEMO TOGGLE & MOCKS  ===================== */
-const DEMO_MODE = true; // <- show demo results when live APIs fail/block
-function mockItems(q, source, n = 5) {
-  const now = Date.now();
-  return Array.from({length:n}).map((_,i) => ({
-    id: `${source}-mock-${i}`,
-    title: `${source} result ${i+1}: ${q || 'sample'}`,
-    url: "https://example.com",
-    summary: `Demo ${source} record related to “${q || 'query'}”.`,
-    source,
-    confidence: 0.6 + Math.random()*0.3,
-    severity: Math.floor(Math.random()*100),
-    timestamp: new Date(now - Math.random()*8640000).toISOString(),
-  }));
-}
-
-/* =====================  UI STATE  ===================== */
-const SOURCES = ["NewsAPI","GovInfo","IPinfo","FEC"]; // FEC may be CORS-blocked
+/* ===================== MOCK DEMO ===================== */
+const SOURCES = ["NewsAPI","GovInfo","IPinfo","FEC"];
 let active = new Set(SOURCES);
-let data = []; // flattened items
+let data = [];
 
 const chipsEl   = document.getElementById('chips');
 const resultsEl = document.getElementById('results');
 const statsEl   = document.getElementById('stats');
-const noteEl    = document.getElementById('note');
 const qEl       = document.getElementById('q');
 const btnEl     = document.getElementById('btn');
 
@@ -113,179 +85,44 @@ SOURCES.forEach((s) => {
 btnEl.onclick = runSearch;
 qEl.addEventListener('keydown', (e) => (e.key === 'Enter') && runSearch());
 
-/* =====================  FETCHERS  ===================== */
-function safeUrl(raw) {
-  if (!raw) return "";
-  const s = String(raw).trim(); const lower = s.toLowerCase();
-  if (lower.startsWith("javascript:")) return "";
-  if (/^https?:\/\//i.test(s)) return s;
-  if (/^www\./i.test(s))       return `https://${s}`;
-  if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(s)) return `https://${s}`;
-  return "";
-}
-
-async function fetchNewsAPI(q) {
-  if (!KEYS.NEWSAPI_KEY) return [];
-  const r = await fetch(`https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&apiKey=${KEYS.NEWSAPI_KEY}`);
-  if (!r.ok) throw new Error(`NewsAPI HTTP ${r.status}`);
-  const j = await r.json();
-  return (j.articles || []).map((a, i) => ({
-    id: `newsapi-${i}`,
-    title: a.title,
-    url: a.url,
-    summary: a.description,
-    source: "NewsAPI",
-    confidence: 0.55,
-    severity: 5,
-    timestamp: a.publishedAt
+function mockItems(q, source, n = 5) {
+  const now = Date.now();
+  return Array.from({length:n}).map((_,i) => ({
+    id: `${source}-mock-${i}`,
+    title: `${source} result ${i+1}: ${q || 'sample'}`,
+    url: "https://example.com",
+    summary: `Demo ${source} record related to “${q || 'query'}”.`,
+    source,
+    confidence: 0.6 + Math.random()*0.3,
+    severity: Math.floor(Math.random()*100),
+    timestamp: new Date(now - Math.random()*8640000).toISOString(),
   }));
 }
 
-async function fetchGovInfo(q) {
-  if (!DATAGOV_KEY) return [];
-  const r = await fetch(`https://api.govinfo.gov/search?query=${encodeURIComponent(q)}&api_key=${DATAGOV_KEY}`);
-  if (!r.ok) throw new Error(`GovInfo HTTP ${r.status}`);
-  const j = await r.json();
-  return (j.results || []).map((g, i) => ({
-    id: `govinfo-${g.granuleId || i}`,
-    title: g.title || g.granuleId,
-    url: g.pdfLink || g.htmlLink,
-    summary: g.collectionCode,
-    source: "GovInfo",
-    confidence: 0.6,
-    severity: 15,
-    timestamp: g.dateIssued || g.dateIngested
-  }));
+async function runSearch() {
+  const q = qEl.value.trim() || "demo";
+  data = Array.from(active).flatMap(s => mockItems(q, s, s === "IPinfo" ? 3 : 5));
+  render();
 }
 
-async function fetchIPinfo(q) {
-  if (!KEYS.IPINFO_TOKEN) return [];
-  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(q)) return [];
-  const r = await fetch(`https://ipinfo.io/${encodeURIComponent(q)}?token=${KEYS.IPINFO_TOKEN}`);
-  if (!r.ok) throw new Error(`IPinfo HTTP ${r.status}`);
-  const info = await r.json();
-  return [{
-    id: `ipinfo-${info.ip}`,
-    title: `${info.ip} · ${info.city || ''} ${info.region || ''}`.trim(),
-    url: `https://ipinfo.io/${info.ip}`,
-    summary: `${info.org || ''} ${info.country || ''}`.trim(),
-    source: "IPinfo",
-    confidence: 0.9,
-    severity: 0,
-    timestamp: new Date().toISOString()
-  }];
-}
-
-// FEC (works only if CORS allows)
-async function fetchFEC(q) {
-  if (!DATAGOV_KEY) return [];
-  const url = `https://api.open.fec.gov/v1/names/candidates/?q=${encodeURIComponent(q)}&api_key=${DATAGOV_KEY}`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`FEC HTTP ${r.status}`);
-  const j = await r.json();
-  return (j.results || []).map((r, i) => ({
-    id: `fec-${r.candidate_id || i}`,
-    title: r.name,
-    url: r.candidate_id ? `https://www.fec.gov/data/candidate/${r.candidate_id}/` : undefined,
-    summary: r.office_full || undefined,
-    source: "FEC",
-    confidence: 0.7,
-    severity: 10,
-    timestamp: r.load_date
-  }));
-}
-
-/* =====================  SEARCH / AGGREGATE / RENDER  ===================== */
 function fmtDate(iso) {
-  if (!iso) return "";
   const d = new Date(iso);
-  return isNaN(+d) ? String(iso) : d.toLocaleString();
+  return isNaN(+d) ? "" : d.toLocaleString();
 }
 
 function aggregate(items) {
   const m = new Map();
   for (const it of items) {
-    const k = it.source || 'unknown';
-    if (!m.has(k)) m.set(k, { source:k, hits:0, conf:0 });
-    const row = m.get(k);
-    row.hits += 1;
-    row.conf += (it.confidence ?? 0);
+    const k = it.source;
+    if (!m.has(k)) m.set(k, {source:k,hits:0,conf:0});
+    const r = m.get(k);
+    r.hits++; r.conf += (it.confidence||0);
   }
-  const arr = Array.from(m.values()).map((r) => ({
-    source: r.source,
-    hits: r.hits,
-    avgConf: r.conf / Math.max(1, r.hits)
+  return Array.from(m.values()).map(r => ({
+    source:r.source,
+    hits:r.hits,
+    avgConf:r.conf / r.hits
   }));
-  arr.sort((a,b) => b.hits - a.hits);
-  return arr;
-}
-
-async function runSearch() {
-  const q = qEl.value.trim();
-  if (!q) { showNote("Type a search term or IPv4, then press Search."); return; }
-  showNote("");
-
-  resultsEl.innerHTML = "Searching…";
-  statsEl.textContent = "";
-  data = [];
-
-  // For each active source, try live fetch; if it fails and DEMO_MODE, inject mock items for that source
-  const perSourcePromises = [];
-
-  if (active.has("NewsAPI")) {
-    perSourcePromises.push(
-      fetchNewsAPI(q)
-        .then(rows => rows.length ? rows : (DEMO_MODE ? mockItems(q, "NewsAPI", 5) : []))
-        .catch(() => (DEMO_MODE ? mockItems(q, "NewsAPI", 5) : []))
-    );
-  }
-  if (active.has("GovInfo")) {
-    perSourcePromises.push(
-      fetchGovInfo(q)
-        .then(rows => rows.length ? rows : (DEMO_MODE ? mockItems(q, "GovInfo", 5) : []))
-        .catch(() => (DEMO_MODE ? mockItems(q, "GovInfo", 5) : []))
-    );
-  }
-  if (active.has("IPinfo")) {
-    perSourcePromises.push(
-      fetchIPinfo(q)
-        .then(rows => rows.length ? rows : (DEMO_MODE ? mockItems(q, "IPinfo", 3) : []))
-        .catch(() => (DEMO_MODE ? mockItems(q, "IPinfo", 3) : []))
-    );
-  }
-  if (active.has("FEC")) {
-    perSourcePromises.push(
-      fetchFEC(q)
-        .then(rows => rows.length ? rows : (DEMO_MODE ? mockItems(q, "FEC", 5) : []))
-        .catch(() => (DEMO_MODE ? mockItems(q, "FEC", 5) : []))
-    );
-  }
-
-  const bundles = await Promise.all(perSourcePromises);
-  let results = bundles.flat();
-
-  // If still nothing (all sources disabled or empty), synthesize across all active
-  if (DEMO_MODE && results.length === 0) {
-    results = Array.from(active).flatMap(s => mockItems(q, s, 4));
-    showNote("Live APIs are blocked from the browser; showing demo data so the visual stays populated.");
-  }
-
-  data = results;
-  render();
-}
-
-function groupBySource(items) {
-  const m = new Map();
-  for (const it of items) {
-    const k = it.source || "unknown";
-    if (!m.has(k)) m.set(k, []);
-    m.get(k).push(it);
-  }
-  for (const [k, arr] of m.entries()) {
-    arr.sort((a,b) => (new Date(b.timestamp||0)) - (new Date(a.timestamp||0)));
-    m.set(k, arr);
-  }
-  return Array.from(m.entries());
 }
 
 let chart;
@@ -294,60 +131,53 @@ function drawChart(aggs) {
   const labels = aggs.map(a => a.source);
   const hits   = aggs.map(a => a.hits);
   const conf   = aggs.map(a => Math.round((a.avgConf||0)*100));
-
   const dataCfg = {
     labels,
     datasets: [
-      { label:'Hits', data:hits, type:'bar', borderWidth:0, backgroundColor:'#0ea5e9' },
-      { label:'Avg Confidence %', data:conf, type:'line', yAxisID:'y1', tension:0.3, borderColor:'#111827', pointRadius:3 }
+      { label:'Hits', data:hits, type:'bar', backgroundColor:'#0ea5e9' },
+      { label:'Avg Confidence %', data:conf, type:'line', yAxisID:'y1', borderColor:'#111827' }
     ]
   };
   const options = {
     responsive:true,
-    scales: {
-      y : { beginAtZero:true, title:{display:true, text:'Hits'} },
-      y1: { beginAtZero:true, position:'right', title:{display:true, text:'Confidence %'}, min:0, max:100 }
-    },
-    plugins: { legend:{ display:true } }
+    scales:{ y:{beginAtZero:true}, y1:{beginAtZero:true,position:'right',max:100} }
   };
   if (chart) chart.destroy();
-  chart = new Chart(ctx, { data:dataCfg, options });
+  chart = new Chart(ctx,{data:dataCfg,options});
 }
 
 function render() {
-  const filtered = data.filter(d => active.has(d.source || "unknown"));
+  const filtered = data.filter(d => active.has(d.source));
   const aggs = aggregate(filtered);
   drawChart(aggs);
   statsEl.textContent = `Total hits: ${filtered.length} · Active sources: ${active.size}`;
 
   if (!filtered.length) {
-    resultsEl.innerHTML = `<div class="subtle">No results yet. Try a broader query, enable more sources, or leave demo mode on.</div>`;
+    resultsEl.innerHTML = `<div class="subtle">No results (toggle sources or search again).</div>`;
     return;
   }
-
-  const groups = groupBySource(filtered);
+  const m = new Map();
+  for (const it of filtered) {
+    if (!m.has(it.source)) m.set(it.source,[]);
+    m.get(it.source).push(it);
+  }
   let html = '';
-  for (const [src, arr] of groups) {
-    html += `<div style="margin:10px 0"><div class="subtle" style="margin-bottom:6px"><strong>${src}</strong> (${arr.length})</div>
-             <div class="grid">`;
+  for (const [src, arr] of m.entries()) {
+    html += `<div style="margin:10px 0"><div class="subtle"><strong>${src}</strong> (${arr.length})</div><div class="grid">`;
     for (const it of arr) {
-      const url = safeUrl(it.url);
-      html += `
-        <div class="item">
-          ${url ? `<a href="${url}" target="_blank" rel="noreferrer">` : `<div>`}
-            <div class="title">${escapeHtml(it.title || it.id)}</div>
-            <div class="subtle" style="margin:6px 0">${escapeHtml(it.summary || '')}</div>
-            <div class="subtle">${src} · conf ${Math.round((it.confidence||0)*100)}% · ${escapeHtml(fmtDate(it.timestamp))}</div>
-          ${url ? `</a>` : `</div>`}
-        </div>`;
+      html += `<div class="item"><a href="${it.url}" target="_blank">
+        <div class="title">${it.title}</div>
+        <div class="subtle">${it.summary}</div>
+        <div class="subtle">${fmtDate(it.timestamp)} · conf ${Math.round((it.confidence||0)*100)}%</div>
+      </a></div>`;
     }
     html += `</div></div>`;
   }
   resultsEl.innerHTML = html;
 }
 
-function showNote(msg) { noteEl.style.display = msg ? 'block':'none'; noteEl.textContent = msg; }
-function escapeHtml(s){return String(s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]))}
+// Run demo on load
+runSearch();
 </script>
 </body>
 </html>
