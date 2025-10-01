@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>OSINT Visualizer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Tailwind (fine for a small demo; warning in console is OK) -->
+  <!-- Tailwind (ok for demo; warning can be ignored) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- React 18 UMD -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -28,7 +28,6 @@
       IPINFO_TOKEN: "6b95dcf1b06bb7",
     };
 
-    // Utils
     const fmtPct = (x) => `${Math.round((x ?? 0) * 100)}%`;
     const fmtInt = (x) => new Intl.NumberFormat().format(x ?? 0);
     const fmtDate = (iso) => {
