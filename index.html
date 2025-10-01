@@ -8,7 +8,7 @@
   :root{--bg:#f7f7fb;--fg:#0f172a;--muted:#64748b;--card:#fff;--border:#e2e8f0;--accent:#111827}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-  .header{position:sticky;top:0;background:rgba(255,255,255,.8);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
+  .header{position:sticky;top:0;background:rgba(255,255,255,.85);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
   .brand{max-width:1200px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:12px}
   .logo{width:40px;height:40px;border-radius:12px;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center}
   h1{margin:0;font-size:20px} .sub{color:var(--muted);font-size:13px;margin-top:2px}
@@ -55,7 +55,11 @@
 
   <div class="wrap">
     <div class="row">
-      <input id="q" placeholder="Type a name/company/keyword… then press Search" />
+      <input
+        id="q"
+        placeholder="Type a name/company/keyword… then press Search"
+        autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+      />
       <button id="btn">Search</button>
     </div>
 
@@ -85,9 +89,7 @@
           <strong>Source Spires</strong>
           <div class="muted">Height = hits · Arc = avg confidence · Color per source</div>
         </div>
-        <div class="canvasWrap">
-          <canvas id="spireCanvas"></canvas>
-        </div>
+        <div class="canvasWrap"><canvas id="spireCanvas"></canvas></div>
         <div id="metrics" class="listMetrics"></div>
       </div>
     </div>
@@ -103,7 +105,7 @@
   </div>
 
 <script>
-// ---------- CONFIG (palette + source list) ----------
+/* -------- Palette & sources -------- */
 const PALETTE = {
   FEC:"#2563eb", GovInfo:"#16a34a", OpenCorporates:"#f59e0b",
   EPA:"#dc2626", "SAM.gov":"#7c3aed", FCC:"#0ea5e9",
@@ -111,11 +113,11 @@ const PALETTE = {
 };
 const SOURCES = ["FEC","GovInfo","OpenCorporates","EPA","SAM.gov","FCC","CollegeScorecard"];
 
-// ---------- STATE ----------
-let active = new Set(SOURCES); // start with all ON
+/* -------- State -------- */
+let active = new Set(SOURCES); // all ON
 let data = [];
 
-// ---------- DOM ----------
+/* -------- DOM -------- */
 const chipsEl = document.getElementById("chips");
 const hitsEl  = document.getElementById("hits");
 const activeCountEl = document.getElementById("activeCount");
@@ -127,14 +129,14 @@ const noteEl    = document.getElementById("note");
 const canvas    = document.getElementById("spireCanvas");
 const ctx       = canvas.getContext("2d");
 
-// ---------- UTIL ----------
-function showNote(msg){ noteEl.style.display = msg ? "block":"none"; noteEl.textContent = msg || ""; }
-function fmtPct(x){ return `${Math.round((x||0)*100)}%`; }
-function fmtInt(x){ return new Intl.NumberFormat().format(x||0); }
-function fmtDate(iso){ const d=new Date(iso); return isNaN(+d)?"":d.toLocaleString(); }
-function escapeHtml(s){return String(s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]))}
+/* -------- Utils -------- */
+const showNote = (m)=>{ noteEl.style.display=m?"block":"none"; noteEl.textContent=m||""; };
+const fmtPct = (x)=> `${Math.round((x||0)*100)}%`;
+const fmtInt = (x)=> new Intl.NumberFormat().format(x||0);
+const fmtDate = (iso)=>{ const d=new Date(iso); return isNaN(+d)?"":d.toLocaleString(); };
+const esc = (s)=> String(s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
-// ---------- CHIPS ----------
+/* -------- Chips -------- */
 function buildChips(){
   chipsEl.innerHTML = "";
   SOURCES.forEach((s)=>{
@@ -146,24 +148,17 @@ function buildChips(){
     b.dataset.source = s;
     b.innerHTML = `<span class="dot" style="background:${PALETTE[s]}"></span>${s}`;
     b.onclick = () => {
-      if (active.has(s)) {
-        active.delete(s);
-        b.classList.remove("active");
-        b.style.color=""; b.style.background="#fff";
-      } else {
-        active.add(s);
-        b.classList.add("active");
-        b.style.color="#fff"; b.style.background=PALETTE[s];
-      }
+      if (active.has(s)){ active.delete(s); b.classList.remove("active"); b.style.color=""; b.style.background="#fff"; }
+      else{ active.add(s); b.classList.add("active"); b.style.color="#fff"; b.style.background=PALETTE[s]; }
       render();
     };
     chipsEl.appendChild(b);
   });
-  document.getElementById("selectAll").onclick = (e)=>{e.preventDefault(); active = new Set(SOURCES); buildChips(); render();};
-  document.getElementById("clearAll").onclick  = (e)=>{e.preventDefault(); active = new Set(); buildChips(); render();};
+  document.getElementById("selectAll").onclick = (e)=>{e.preventDefault(); active=new Set(SOURCES); buildChips(); render();};
+  document.getElementById("clearAll").onclick  = (e)=>{e.preventDefault(); active=new Set(); buildChips(); render();};
 }
 
-// ---------- MOCK DATA ----------
+/* -------- Mock data -------- */
 function mockItems(q, source, nMin=3, nMax=9){
   const n = nMin + Math.floor(Math.random()*(nMax-nMin+1));
   const now = Date.now();
@@ -183,23 +178,20 @@ function mockItems(q, source, nMin=3, nMax=9){
   return out;
 }
 
-// ---------- AGG ----------
+/* -------- Aggregate & grouping -------- */
 function aggregateBySource(items){
   const m = new Map();
   for (const it of items){
     const k = it.source || "unknown";
     if (!m.has(k)) m.set(k,{source:k,hits:0,confSum:0});
-    const r = m.get(k);
-    r.hits += 1;
-    r.confSum += (it.confidence || 0);
+    const r = m.get(k); r.hits += 1; r.confSum += (it.confidence||0);
   }
   const arr = Array.from(m.values()).map(r=>({
     source:r.source,
     hits:r.hits,
     avgConfidence:r.confSum / Math.max(1,r.hits),
     color:PALETTE[r.source] || PALETTE.unknown
-  }));
-  arr.sort((a,b)=>b.hits - a.hits);
+  })).sort((a,b)=> b.hits - a.hits);
   return arr;
 }
 function groupBySource(items){
@@ -216,7 +208,7 @@ function groupBySource(items){
   return Array.from(m.entries());
 }
 
-// ---------- SPIRES (canvas) ----------
+/* -------- Spire drawing (canvas) -------- */
 function drawSpires(aggs){
   const dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth || canvas.parentElement.clientWidth;
@@ -226,10 +218,9 @@ function drawSpires(aggs){
   ctx.clearRect(0,0,w,h);
 
   const cx = w/2, cy = h/2 + 20;
-  const ringGap = 22;
-  const baseR   = 28;
+  const ringGap = 22, baseR = 28;
 
-  // background rings
+  // faint background rings
   ctx.strokeStyle = "#e5e7eb";
   for (let r=baseR; r< Math.min(w,h)/2 - 8; r+=ringGap){
     ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.lineWidth = 1; ctx.stroke();
@@ -237,8 +228,8 @@ function drawSpires(aggs){
 
   aggs.forEach((a, idx)=>{
     const r = baseR + idx*ringGap;
-    const lw = Math.min(6 + a.hits, 32);
-    const angle = (a.avgConfidence || 0) * Math.PI*2;
+    const lw = Math.min(6 + a.hits, 32);              // height = hits
+    const angle = (a.avgConfidence || 0) * Math.PI*2; // arc = avg conf
     const start = -Math.PI/2;
     ctx.beginPath();
     ctx.arc(cx,cy,r,start,start + Math.max(angle, Math.PI*0.08));
@@ -249,7 +240,7 @@ function drawSpires(aggs){
   });
 }
 
-// ---------- RENDER ----------
+/* -------- Render -------- */
 function render(){
   const filtered = data.filter(d=>active.has(d.source));
   const aggs = aggregateBySource(filtered);
@@ -276,8 +267,8 @@ function render(){
     const cards = arr.map(it=>`
       <div class="item">
         <a href="${it.url}" target="_blank" rel="noreferrer">
-          <div class="title">${escapeHtml(it.title)}</div>
-          <div class="subtle" style="margin:6px 0">${escapeHtml(it.summary)}</div>
+          <div class="title">${esc(it.title)}</div>
+          <div class="subtle" style="margin:6px 0">${esc(it.summary)}</div>
           <div class="subtle">${src} · conf ${fmtPct(it.confidence)} · ${fmtDate(it.timestamp)}</div>
         </a>
       </div>
@@ -294,30 +285,23 @@ function render(){
   }).join("") || `<div class="muted">No results yet. Toggle sources or run a search.</div>`;
 }
 
-// ---------- SEARCH (mock only) ----------
+/* -------- Search (mock only) -------- */
 function runSearch(){
   const q = qEl.value.trim();
-  if (!q){
-    showNote("Type something to search, then press Search.");
-    return;
-  }
+  if (!q){ showNote("Type something to search, then press Search."); return; }
+  if (active.size === 0){ showNote("No sources selected. Click ‘Select all’ or enable some sources."); return; }
   showNote("");
-  if (active.size === 0){
-    showNote("No sources selected. Click ‘Select all’ or enable some sources.");
-    return;
-  }
-  // Build mock results per active source
   let out = [];
   active.forEach(s => { out = out.concat(mockItems(q,s)); });
   data = out;
   render();
 }
 
-// ---------- INIT ----------
+/* -------- Init -------- */
 function init(){
-  buildChips();         // create chips and wire handlers
-  qEl.value = "";       // start empty
-  render();             // render empty state
+  buildChips();           // all chips ON by default
+  qEl.value = "";         // ensure empty input on load
+  render();               // draw empty state
   btnEl.onclick = runSearch;
   qEl.addEventListener("keydown",(e)=> e.key==="Enter" && runSearch());
 }
