@@ -2,35 +2,34 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Spire Visualizer — OSINT (Mock Demo)</title>
+<title>OSINT Visualizer (Mock Demo)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
-  :root{
-    --bg:#f7f7fb;--fg:#0f172a;--muted:#64748b;--card:#fff;--border:#e2e8f0;--accent:#111827
-  }
+  :root{--bg:#f7f7fb;--fg:#0f172a;--muted:#64748b;--card:#fff;--border:#e2e8f0;--accent:#111827}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-  .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
-  .header{position:sticky;top:0;background:rgba(255,255,255,.8);backdrop-filter:blur(6px);border-bottom:1px solid var(--border);padding:12px 16px;margin:-24px 0 16px}
-  .brand{display:flex;align-items:center;gap:12px;max-width:1200px;margin:0 auto}
+  .header{position:sticky;top:0;background:rgba(255,255,255,.8);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
+  .brand{max-width:1200px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:12px}
   .logo{width:40px;height:40px;border-radius:12px;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center}
   h1{margin:0;font-size:20px} .sub{color:var(--muted);font-size:13px;margin-top:2px}
-  .row{display:flex;gap:8px;margin:14px 0}
+  .wrap{max-width:1200px;margin:16px auto;padding:0 16px}
+  .row{display:flex;gap:8px;margin:10px 0 16px}
   input[type="text"]{flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:10px}
   button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer}
-  .gridMain{display:grid;grid-template-columns:1fr 2fr;gap:16px}
+  .grid{display:grid;grid-template-columns:1fr 2fr;gap:16px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
-  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;min-height:34px}
   .chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:12px;background:#fff;cursor:pointer;box-shadow:0 0 0 2px transparent inset;transition:box-shadow .15s}
-  .chip.active{color:#fff;border-color:#111}
+  .chip.active{color:#fff}
   .chip .dot{width:10px;height:10px;border-radius:999px;display:inline-block}
-  .chipRow{display:flex;gap:10px;margin-top:8px}
+  .toolbar{display:flex;gap:10px;margin-top:8px}
+  .toolbar a{font-size:13px}
   .muted{color:var(--muted)}
+  .canvasWrap{height:380px;border:1px solid var(--border);border-radius:16px;display:flex;align-items:center;justify-content:center;background:#fff}
+  canvas{width:100%;height:100%}
   .listMetrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px}
   .metric{border:1px solid var(--border);border-radius:12px;padding:10px;background:#fff}
   .metric .k{font-weight:700;font-size:20px}
-  .canvasWrap{height:380px;border:1px solid var(--border);border-radius:16px;display:flex;align-items:center;justify-content:center;background:#fff}
-  canvas{width:100%;height:100%}
   .resultsHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
   .groups{display:flex;flex-direction:column;gap:14px}
   .groupTitle{display:flex;align-items:center;gap:8px;font-weight:600}
@@ -40,16 +39,15 @@
   .item a{color:inherit;text-decoration:none}
   .item .title{font-weight:600;margin-bottom:6px}
   .item .subtle{font-size:12px;color:var(--muted)}
-  .toolbar{display:flex;gap:10px;margin-top:8px}
-  .toolbar a{font-size:13px}
+  .note{margin-top:10px;color:#a15c00;background:#fff7e6;border:1px solid #ffe1b3;padding:8px;border-radius:10px;font-size:13px}
 </style>
 </head>
 <body>
   <div class="header">
     <div class="brand">
-      <div class="logo">DB</div>
+      <div class="logo">OS</div>
       <div>
-        <h1>Spire Visualizer</h1>
+        <h1>OSINT Visualizer</h1>
         <div class="sub">OSINT API Search · radial source aggregation (mock demo)</div>
       </div>
     </div>
@@ -57,12 +55,14 @@
 
   <div class="wrap">
     <div class="row">
-      <input id="q" placeholder="Search (name, company, address, keyword…)" />
+      <input id="q" placeholder="Type a name/company/keyword… then press Search" />
       <button id="btn">Search</button>
     </div>
 
-    <div class="gridMain">
-      <!-- Filters / counts -->
+    <div id="note" class="note" style="display:none"></div>
+
+    <div class="grid">
+      <!-- Sources / counts -->
       <div class="card">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" stroke="#0f172a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -79,7 +79,7 @@
         </div>
       </div>
 
-      <!-- Spires -->
+      <!-- Spires/metrics -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <strong>Source Spires</strong>
@@ -88,8 +88,6 @@
         <div class="canvasWrap">
           <canvas id="spireCanvas"></canvas>
         </div>
-
-        <!-- Metrics strip -->
         <div id="metrics" class="listMetrics"></div>
       </div>
     </div>
@@ -105,23 +103,19 @@
   </div>
 
 <script>
-/* ===== Palette & Sources (match the earlier look) ===== */
+// ---------- CONFIG (palette + source list) ----------
 const PALETTE = {
-  FEC:"#2563eb",          // blue
-  GovInfo:"#16a34a",      // green
-  OpenCorporates:"#f59e0b", // amber
-  EPA:"#dc2626",          // red
-  "SAM.gov":"#7c3aed",    // violet
-  FCC:"#0ea5e9",          // sky
-  CollegeScorecard:"#059669", // emerald
-  unknown:"#9ca3af"
+  FEC:"#2563eb", GovInfo:"#16a34a", OpenCorporates:"#f59e0b",
+  EPA:"#dc2626", "SAM.gov":"#7c3aed", FCC:"#0ea5e9",
+  CollegeScorecard:"#059669", unknown:"#9ca3af"
 };
 const SOURCES = ["FEC","GovInfo","OpenCorporates","EPA","SAM.gov","FCC","CollegeScorecard"];
 
-let active = new Set(SOURCES);
-let data = []; // flat list of items
+// ---------- STATE ----------
+let active = new Set(SOURCES); // start with all ON
+let data = [];
 
-/* ===== DOM ===== */
+// ---------- DOM ----------
 const chipsEl = document.getElementById("chips");
 const hitsEl  = document.getElementById("hits");
 const activeCountEl = document.getElementById("activeCount");
@@ -129,36 +123,47 @@ const metricsEl = document.getElementById("metrics");
 const groupsEl  = document.getElementById("groups");
 const qEl       = document.getElementById("q");
 const btnEl     = document.getElementById("btn");
+const noteEl    = document.getElementById("note");
 const canvas    = document.getElementById("spireCanvas");
 const ctx       = canvas.getContext("2d");
 
-/* ===== UI: chips ===== */
-SOURCES.forEach((s)=>{
-  const b = document.createElement("button");
-  b.className = "chip active";
-  b.style.boxShadow = `0 0 0 2px ${PALETTE[s]} inset`;
-  b.style.background = "#fff";
-  b.dataset.source = s;
-  b.innerHTML = `<span class="dot" style="background:${PALETTE[s]}"></span>${s}`;
-  b.onclick = () => { toggleSource(s,b); };
-  chipsEl.appendChild(b);
-});
-document.getElementById("selectAll").onclick = (e)=>{e.preventDefault(); active = new Set(SOURCES); refreshChipStates(); render();};
-document.getElementById("clearAll").onclick  = (e)=>{e.preventDefault(); active = new Set(); refreshChipStates(); render();};
-function toggleSource(s,btn){
-  if (active.has(s)) { active.delete(s); btn.classList.remove("active"); btn.style.color = ""; btn.style.background="#fff"; }
-  else { active.add(s); btn.classList.add("active"); btn.style.color="#fff"; btn.style.background=PALETTE[s]; }
-  render();
-}
-function refreshChipStates(){
-  chipsEl.querySelectorAll(".chip").forEach(btn=>{
-    const s = btn.dataset.source;
-    if (active.has(s)) { btn.classList.add("active"); btn.style.color="#fff"; btn.style.background=PALETTE[s]; }
-    else { btn.classList.remove("active"); btn.style.color=""; btn.style.background="#fff"; }
+// ---------- UTIL ----------
+function showNote(msg){ noteEl.style.display = msg ? "block":"none"; noteEl.textContent = msg || ""; }
+function fmtPct(x){ return `${Math.round((x||0)*100)}%`; }
+function fmtInt(x){ return new Intl.NumberFormat().format(x||0); }
+function fmtDate(iso){ const d=new Date(iso); return isNaN(+d)?"":d.toLocaleString(); }
+function escapeHtml(s){return String(s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]))}
+
+// ---------- CHIPS ----------
+function buildChips(){
+  chipsEl.innerHTML = "";
+  SOURCES.forEach((s)=>{
+    const b = document.createElement("button");
+    b.className = "chip active";
+    b.style.boxShadow = `0 0 0 2px ${PALETTE[s]} inset`;
+    b.style.background = PALETTE[s];
+    b.style.color = "#fff";
+    b.dataset.source = s;
+    b.innerHTML = `<span class="dot" style="background:${PALETTE[s]}"></span>${s}`;
+    b.onclick = () => {
+      if (active.has(s)) {
+        active.delete(s);
+        b.classList.remove("active");
+        b.style.color=""; b.style.background="#fff";
+      } else {
+        active.add(s);
+        b.classList.add("active");
+        b.style.color="#fff"; b.style.background=PALETTE[s];
+      }
+      render();
+    };
+    chipsEl.appendChild(b);
   });
+  document.getElementById("selectAll").onclick = (e)=>{e.preventDefault(); active = new Set(SOURCES); buildChips(); render();};
+  document.getElementById("clearAll").onclick  = (e)=>{e.preventDefault(); active = new Set(); buildChips(); render();};
 }
 
-/* ===== Mock data ===== */
+// ---------- MOCK DATA ----------
 function mockItems(q, source, nMin=3, nMax=9){
   const n = nMin + Math.floor(Math.random()*(nMax-nMin+1));
   const now = Date.now();
@@ -178,7 +183,7 @@ function mockItems(q, source, nMin=3, nMax=9){
   return out;
 }
 
-/* ===== Aggregate & render ===== */
+// ---------- AGG ----------
 function aggregateBySource(items){
   const m = new Map();
   for (const it of items){
@@ -197,41 +202,46 @@ function aggregateBySource(items){
   arr.sort((a,b)=>b.hits - a.hits);
   return arr;
 }
-function fmtPct(x){ return `${Math.round((x||0)*100)}%`; }
-function fmtInt(x){ return new Intl.NumberFormat().format(x||0); }
-function fmtDate(iso){ const d=new Date(iso); return isNaN(+d)?"":d.toLocaleString(); }
+function groupBySource(items){
+  const m = new Map();
+  for (const it of items){
+    const k = it.source || "unknown";
+    if (!m.has(k)) m.set(k,[]);
+    m.get(k).push(it);
+  }
+  for (const [k,arr] of m.entries()){
+    arr.sort((a,b)=> (new Date(b.timestamp||0)) - (new Date(a.timestamp||0)));
+    m.set(k,arr);
+  }
+  return Array.from(m.entries());
+}
 
-/* ===== Spires (canvas custom) ===== */
+// ---------- SPIRES (canvas) ----------
 function drawSpires(aggs){
-  // size canvas for device pixel ratio
   const dpr = window.devicePixelRatio || 1;
-  const {clientWidth:w, clientHeight:h} = canvas;
-  canvas.width  = w * dpr;
-  canvas.height = h * dpr;
+  const w = canvas.clientWidth || canvas.parentElement.clientWidth;
+  const h = canvas.clientHeight || 380;
+  canvas.width  = w * dpr; canvas.height = h * dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,w,h);
 
-  const cx = w/2, cy = h/2 + 20; // center a bit lower
-  const ringGap = 22;            // distance between rings
-  const baseR   = 28;            // inner radius
+  const cx = w/2, cy = h/2 + 20;
+  const ringGap = 22;
+  const baseR   = 28;
 
-  // Background faint rings for context
+  // background rings
   ctx.strokeStyle = "#e5e7eb";
   for (let r=baseR; r< Math.min(w,h)/2 - 8; r+=ringGap){
-    ctx.beginPath();
-    ctx.arc(cx,cy,r,0,Math.PI*2);
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.lineWidth = 1; ctx.stroke();
   }
 
-  // For each source, draw an arc: lineWidth ~ hits; arc length ~ avg confidence
   aggs.forEach((a, idx)=>{
     const r = baseR + idx*ringGap;
-    const lw = Math.min(6 + a.hits, 32); // “height”
-    const angle = (a.avgConfidence || 0) * Math.PI*2; // “arc”
+    const lw = Math.min(6 + a.hits, 32);
+    const angle = (a.avgConfidence || 0) * Math.PI*2;
     const start = -Math.PI/2;
     ctx.beginPath();
-    ctx.arc(cx,cy,r,start,start + Math.max(angle, Math.PI*0.08)); // ensure a tiny visible arc
+    ctx.arc(cx,cy,r,start,start + Math.max(angle, Math.PI*0.08));
     ctx.strokeStyle = a.color;
     ctx.lineCap = "round";
     ctx.lineWidth = lw;
@@ -239,14 +249,14 @@ function drawSpires(aggs){
   });
 }
 
-/* ===== UI render ===== */
+// ---------- RENDER ----------
 function render(){
   const filtered = data.filter(d=>active.has(d.source));
   const aggs = aggregateBySource(filtered);
   hitsEl.textContent = fmtInt(filtered.length);
   activeCountEl.textContent = active.size;
 
-  // Metrics strip
+  // metrics
   metricsEl.innerHTML = aggs.map(a=>`
     <div class="metric">
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -258,12 +268,10 @@ function render(){
     </div>
   `).join("");
 
-  // Spires
   drawSpires(aggs);
 
-  // Results grouped
   const groups = groupBySource(filtered);
-  groupsEl.innerHTML = groups.map(([src,arr],i)=>{
+  groupsEl.innerHTML = groups.map(([src,arr])=>{
     const color = PALETTE[src] || PALETTE.unknown;
     const cards = arr.map(it=>`
       <div class="item">
@@ -285,36 +293,35 @@ function render(){
     `;
   }).join("") || `<div class="muted">No results yet. Toggle sources or run a search.</div>`;
 }
-function groupBySource(items){
-  const m = new Map();
-  for (const it of items){
-    const k = it.source || "unknown";
-    if (!m.has(k)) m.set(k,[]);
-    m.get(k).push(it);
-  }
-  for (const [k,arr] of m.entries()){
-    arr.sort((a,b)=> (new Date(b.timestamp||0)) - (new Date(a.timestamp||0)));
-    m.set(k,arr);
-  }
-  return Array.from(m.entries());
-}
-function escapeHtml(s){return String(s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]))}
 
-/* ===== Interactions ===== */
-btnEl.onclick = runSearch;
-qEl.addEventListener("keydown",(e)=> e.key==="Enter" && runSearch());
+// ---------- SEARCH (mock only) ----------
 function runSearch(){
-  const q = qEl.value.trim() || "demo";
-  // fresh mock per active source
+  const q = qEl.value.trim();
+  if (!q){
+    showNote("Type something to search, then press Search.");
+    return;
+  }
+  showNote("");
+  if (active.size === 0){
+    showNote("No sources selected. Click ‘Select all’ or enable some sources.");
+    return;
+  }
+  // Build mock results per active source
   let out = [];
   active.forEach(s => { out = out.concat(mockItems(q,s)); });
   data = out;
   render();
 }
 
-/* ===== Kickoff ===== */
-qEl.value = "philippe weissberg";
-runSearch();
+// ---------- INIT ----------
+function init(){
+  buildChips();         // create chips and wire handlers
+  qEl.value = "";       // start empty
+  render();             // render empty state
+  btnEl.onclick = runSearch;
+  qEl.addEventListener("keydown",(e)=> e.key==="Enter" && runSearch());
+}
+init();
 </script>
 </body>
 </html>
